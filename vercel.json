@@ -12,13 +12,9 @@
       "path": "/api/cron/daily-summary",
       "schedule": "0 13 * * *"
     },
-{
+    {
       "path": "/api/cron/intelligence",
       "schedule": "0 12 * * 1"
-    },
-    {
-      "path": "/api/cron/redteam",
-      "schedule": "0 12 1-7 * 1"
     }
   ]
 }
