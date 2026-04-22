@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApprovalCard } from "./components/ApprovalCard";
 import { ConfirmationBanner } from "./components/ConfirmationBanner";
@@ -21,6 +21,25 @@ type PageState =
   | { status: "done"; result: "approved" | "rejected" };
 
 export default function ApprovePage() {
+  return (
+    <Suspense fallback={<LoadingShell />}>
+      <ApproveInner />
+    </Suspense>
+  );
+}
+
+function LoadingShell() {
+  return (
+    <main style={styles.main}>
+      <div style={styles.container}>
+        <div style={styles.brand}>7D Tech</div>
+        <p style={styles.muted}>Loading...</p>
+      </div>
+    </main>
+  );
+}
+
+function ApproveInner() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [state, setState] = useState<PageState>({ status: "loading" });
