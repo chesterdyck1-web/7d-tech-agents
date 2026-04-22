@@ -12,11 +12,7 @@
       "path": "/api/cron/daily-summary",
       "schedule": "0 13 * * *"
     },
-    {
-      "path": "/api/cron/follow-up",
-      "schedule": "*/30 * * * *"
-    },
-    {
+{
       "path": "/api/cron/intelligence",
       "schedule": "0 12 * * 1"
     },
