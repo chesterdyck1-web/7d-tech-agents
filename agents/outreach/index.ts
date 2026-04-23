@@ -10,11 +10,14 @@ import { scheduleFollowUp } from "./follow-up-scheduler";
 import { runEmailQA } from "@/agents/qa/email-tester";
 
 export async function runOutreach(): Promise<void> {
+  // Cap daily outreach at 20 emails — prevents inbox flood and spam flags
+  const DAILY_LIMIT = 20;
+
   const today = new Date().toISOString().slice(0, 10);
   const leads = await readSheetAsObjects("Daily Leads");
-  const todayLeads = leads.filter(
-    (r) => r["date"] === today && !r["approval_id"] && r["email"]
-  );
+  const todayLeads = leads
+    .filter((r) => r["date"] === today && !r["approval_id"] && r["email"])
+    .slice(0, DAILY_LIMIT);
 
   if (todayLeads.length === 0) {
     await sendToChester("Outreach Agent: no new leads with emails to process today.");
