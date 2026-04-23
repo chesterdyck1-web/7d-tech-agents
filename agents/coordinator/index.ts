@@ -74,17 +74,25 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       );
       break;
 
+    case "run_outreach": {
+      await sendToChester("Starting outreach run — drafting emails for today's leads now.");
+      const { runOutreach } = await import("@/agents/outreach/index");
+      await runOutreach();
+      break;
+    }
+
     case "run_audit":
       await sendToChester(
         "Audit Agent coming in Phase 5. Note the business name and URL and I will run it when that phase is live."
       );
       break;
 
-    case "run_prospecting":
-      await sendToChester(
-        "Prospecting Agent coming in Phase 2. Running manually is not yet available."
-      );
+    case "run_prospecting": {
+      await sendToChester("Starting prospecting run now — I will message you when it is done.");
+      const { runProspecting } = await import("@/agents/prospecting/index");
+      await runProspecting();
       break;
+    }
 
     case "ask_question":
       await handleAskQuestion(originalText);

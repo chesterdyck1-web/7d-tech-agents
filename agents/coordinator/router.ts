@@ -9,6 +9,7 @@ export type Intent =
   | "send_prescription"
   | "build_spec"
   | "run_prospecting"
+  | "run_outreach"
   | "content_status"
   | "view_performance"
   | "get_summary"
@@ -25,6 +26,7 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t.startsWith("send prescription for")) return "send_prescription";
   if (t.startsWith("build ")) return "build_spec";
   if (t.includes("run prospecting")) return "run_prospecting";
+  if (t.includes("run outreach") || t.includes("send emails")) return "run_outreach";
   if (t.includes("content status")) return "content_status";
   if (t === "performance" || t.includes("how are agents doing")) return "view_performance";
   if (t === "daily brief") return "get_summary";
