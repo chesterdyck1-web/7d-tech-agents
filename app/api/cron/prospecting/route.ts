@@ -6,6 +6,9 @@ import { runProspecting } from "@/agents/prospecting/index";
 import { env } from "@/lib/env";
 import { log } from "@/lib/logger";
 
+// Extend Vercel function timeout to 60s (Hobby plan maximum)
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${env.CRON_SECRET}`) {

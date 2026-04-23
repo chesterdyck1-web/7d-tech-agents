@@ -21,6 +21,15 @@ export interface ProspectingResult {
   written: number;
 }
 
+// Rotates through cities daily so all cities are covered every N days.
+// Avoids Vercel's 60-second function timeout by limiting work per run.
+function getCityForToday(): typeof TARGET_CITIES[number] {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+  );
+  return TARGET_CITIES[dayOfYear % TARGET_CITIES.length]!;
+}
+
 export async function runProspecting(): Promise<ProspectingResult> {
   const result: ProspectingResult = {
     found: 0,
@@ -29,12 +38,13 @@ export async function runProspecting(): Promise<ProspectingResult> {
     written: 0,
   };
 
-  await log({ agent: "prospecting", action: "run_started", status: "pending" });
+  const city = getCityForToday();
+  await log({ agent: "prospecting", action: "run_started", status: "pending", metadata: { city: city.name } as unknown as Record<string, unknown> });
 
   const existingIds = await getExistingBusinessIds();
 
-  for (const city of TARGET_CITIES) {
-    for (const vertical of VERTICALS) {
+  // Process one city per run, all verticals
+  for (const vertical of VERTICALS) {
       for (const searchTerm of vertical.searchTerms) {
         let places;
         try {
@@ -44,7 +54,7 @@ export async function runProspecting(): Promise<ProspectingResult> {
             agent: "prospecting",
             action: "places_search",
             status: "failure",
-            metadata: { searchTerm, city: city.name },
+            metadata: { searchTerm, city: city.name } as unknown as Record<string, unknown>,
             errorMessage: String(err),
           });
           continue;
@@ -100,7 +110,6 @@ export async function runProspecting(): Promise<ProspectingResult> {
         }
       }
     }
-  }
 
   await log({
     agent: "prospecting",
@@ -111,7 +120,7 @@ export async function runProspecting(): Promise<ProspectingResult> {
 
   // Notify Chester via Telegram
   await sendToChester(
-    `*Prospecting complete*\nFound: ${result.found} | New: ${result.written} | Emails discovered: ${result.emailsDiscovered} | Duplicates skipped: ${result.deduplicated}`
+    `*Prospecting complete — ${city.name}*\nFound: ${result.found} | New: ${result.written} | Emails discovered: ${result.emailsDiscovered} | Duplicates skipped: ${result.deduplicated}`
   );
 
   return result;
