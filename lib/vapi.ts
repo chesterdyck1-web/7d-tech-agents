@@ -53,8 +53,8 @@ export async function createAssistant(name: string, systemPrompt: string): Promi
         messages: [{ role: "system", content: systemPrompt }],
       },
       voice: {
-        provider: "playht",
-        voiceId: "jennifer",
+        provider: "openai",
+        voiceId: "nova",
       },
       firstMessage: "Hi, is this {{ownerName}} from {{businessName}}? I'll be quick — 30 seconds?",
       endCallMessage: "Thanks for your time. Have a great day.",
