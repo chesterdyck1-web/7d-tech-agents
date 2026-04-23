@@ -106,7 +106,7 @@ export async function runProspecting(): Promise<ProspectingResult> {
     agent: "prospecting",
     action: "run_completed",
     status: "success",
-    metadata: result,
+    metadata: result as unknown as Record<string, unknown>,
   });
 
   // Notify Chester via Telegram
