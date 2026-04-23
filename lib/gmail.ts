@@ -30,12 +30,10 @@ function buildRawEmail(payload: EmailPayload): string {
     `To: ${payload.to}`,
     `Subject: ${payload.subject}`,
     `Content-Type: text/html; charset=utf-8`,
-    payload.replyTo ? `Reply-To: ${payload.replyTo}` : "",
-    "",
+    ...(payload.replyTo ? [`Reply-To: ${payload.replyTo}`] : []),
+    "",  // required blank line between headers and body per RFC 2822
     payload.bodyHtml,
-  ]
-    .filter((line) => line !== "")
-    .join("\r\n");
+  ].join("\r\n");
 
   return Buffer.from(lines)
     .toString("base64")
