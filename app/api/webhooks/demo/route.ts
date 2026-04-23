@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       label: "demo:draft-reply",
     });
 
-    const subject = `Re: Inquiry from ${body.name} — ${body.business}`;
+    const subject = `Re: Inquiry from ${body.name} - ${body.business}`;
 
     // Write to Approval Queue
     const token = await generateApprovalToken(approvalId, "chester_outreach");
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     // Email Chester the approval request
     await sendEmail({
       to: "chesterdyck1@gmail.com",
-      subject: `New inquiry from ${body.name} — tap to approve reply`,
+      subject: `New inquiry from ${body.name} - tap to approve reply`,
       bodyHtml: `
         <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:2rem;color:#1a1a1a;">
           <p style="font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:1.5rem;">7D Tech — Approval Required</p>
