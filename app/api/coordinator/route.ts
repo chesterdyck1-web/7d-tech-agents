@@ -1,7 +1,9 @@
 // Telegram webhook endpoint — receives messages from @sevendtechbot.
-// Telegram POSTs here every time Chester sends a message.
+// Returns 200 to Telegram immediately, then runs agent work in the background.
+// This prevents Telegram from retrying when agent runs take longer than 10 seconds.
 
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { parseIncomingMessage, isFromChester, sendToChester } from "@/lib/telegram";
 import { handleCoordinatorMessage } from "@/agents/coordinator/index";
 
@@ -17,14 +19,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  try {
-    await handleCoordinatorMessage(message.text);
-  } catch (err) {
-    console.error("[coordinator] Error handling message:", err);
-    await sendToChester(
-      "Something went wrong processing that. Check the Action Log for details."
-    );
-  }
+  // Run agent work after response is sent so Telegram doesn't retry
+  waitUntil(
+    handleCoordinatorMessage(message.text).catch(async (err) => {
+      console.error("[coordinator] Error handling message:", err);
+      await sendToChester(
+        "Something went wrong processing that. Check the Action Log for details."
+      );
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }
