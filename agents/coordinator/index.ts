@@ -68,11 +68,15 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       await handleViewPerformance();
       break;
 
-    case "onboard_client":
-      await sendToChester(
-        "Got it — Fulfillment Agent coming in Phase 3. For now, log the client details in the Clients sheet manually and I will pick them up."
-      );
+    case "onboard_client": {
+      // Parse "client signed - Business Name" → "Business Name"
+      const businessName = originalText
+        .replace(/^client signed\s*[-–]\s*/i, "")
+        .trim();
+      const { handleClientSigned } = await import("@/agents/fulfillment/index");
+      await handleClientSigned(businessName);
       break;
+    }
 
     case "run_outreach": {
       await sendToChester("Starting outreach run — drafting emails for today's leads now.");

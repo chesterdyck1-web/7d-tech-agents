@@ -23,6 +23,7 @@ const envSchema = z.object({
   MAKE_API_KEY: z.string().min(1),
   MAKE_TEAM_ID: z.string().min(1),
   MAKE_WEBHOOK_SECRET: z.string().min(1),
+  MAKE_TEMPLATE_SCENARIO_ID: z.string().default("0"),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().min(1),
