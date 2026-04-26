@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  const clientPrompt = client["claude_prompt"];
+  const clientPrompt = client["claude_prompt_version"];
   if (!clientPrompt) {
     return NextResponse.json({ error: "Client prompt not configured" }, { status: 422 });
   }

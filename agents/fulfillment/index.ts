@@ -28,7 +28,7 @@ export async function handleClientSigned(businessName: string): Promise<void> {
 
   const clientId = client["client_id"] ?? "";
 
-  if (client["payment_status"] === "paid") {
+  if (client["stripe_payment_status"] === "paid") {
     await sendToChester(`${businessName} already paid — onboarding is in progress.`);
     return;
   }
@@ -41,7 +41,7 @@ export async function handleClientSigned(businessName: string): Promise<void> {
       businessName: client["business_name"] ?? "",
       ownerName: client["owner_name"] ?? "",
       ownerEmail: client["owner_email"] ?? "",
-      monthlyRateCad: Number(client["monthly_rate_cad"]) || 97,
+      monthlyRateCad: Number(client["monthly_revenue"]) || 97,
     });
 
     await sendToChester(
@@ -98,7 +98,7 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
       tone: client["tone"],
     });
 
-    await updateFieldByRowId("Clients", 0, clientId, 11, prompt);
+    await updateFieldByRowId("Clients", 0, clientId, 14, prompt); // col 14 = claude_prompt_version
 
     const templateId = Number(env.MAKE_TEMPLATE_SCENARIO_ID);
     const { scenarioId, webhookUrl } = await provisionMakeScenario(
@@ -109,7 +109,7 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
 
     const testResult = await runClientTest(clientId, webhookUrl);
 
-    await updateFieldByRowId("Clients", 0, clientId, 14, "active");
+    await updateFieldByRowId("Clients", 0, clientId, 7, "active"); // col 7 = status
 
     await log({
       agent: "fulfillment",
