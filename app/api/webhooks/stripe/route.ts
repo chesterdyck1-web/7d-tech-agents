@@ -2,6 +2,7 @@
 // Kicks off the technical onboarding: Claude prompt, Make scenario, end-to-end test.
 
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { constructWebhookEvent } from "@/lib/stripe";
 import { completeClientOnboarding } from "@/agents/fulfillment/index";
 import { updateFieldByRowId, readSheetAsObjects } from "@/lib/google-sheets";
@@ -58,14 +59,16 @@ export async function POST(req: NextRequest) {
       // Non-fatal — onboarding will still proceed
     }
 
-    completeClientOnboarding(clientEmail).catch(async (err) => {
-      await log({
-        agent: "fulfillment",
-        action: "onboarding_background_error",
-        status: "failure",
-        errorMessage: String(err),
-      });
-    });
+    waitUntil(
+      completeClientOnboarding(clientEmail).catch(async (err) => {
+        await log({
+          agent: "fulfillment",
+          action: "onboarding_background_error",
+          status: "failure",
+          errorMessage: String(err),
+        });
+      })
+    );
   }
 
   return NextResponse.json({ ok: true });
