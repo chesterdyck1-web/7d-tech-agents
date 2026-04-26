@@ -22,6 +22,7 @@ const envSchema = z.object({
   // Make.com
   MAKE_API_KEY: z.string().min(1),
   MAKE_TEAM_ID: z.string().min(1),
+  MAKE_ORGANIZATION_ID: z.string().min(1),
   MAKE_WEBHOOK_SECRET: z.string().min(1),
   MAKE_TEMPLATE_SCENARIO_ID: z.string().default("0"),
 
