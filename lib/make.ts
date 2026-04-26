@@ -17,14 +17,15 @@ export async function cloneScenario(
   templateScenarioId: number,
   newName: string
 ): Promise<number> {
-  const res = await fetch(`${BASE}/scenarios/${templateScenarioId}/clone`, {
+  const params = new URLSearchParams({
+    teamId: env.MAKE_TEAM_ID,
+    organizationId: env.MAKE_ORGANIZATION_ID,
+  });
+
+  const res = await fetch(`${BASE}/scenarios/${templateScenarioId}/clone?${params}`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({
-      teamId: Number(env.MAKE_TEAM_ID),
-      organizationId: Number(env.MAKE_ORGANIZATION_ID),
-      name: newName,
-    }),
+    body: JSON.stringify({ name: newName }),
   });
 
   if (!res.ok) {
