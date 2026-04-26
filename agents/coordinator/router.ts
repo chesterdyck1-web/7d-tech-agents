@@ -5,6 +5,7 @@ export type Intent =
   | "view_pipeline"
   | "view_approvals"
   | "onboard_client"
+  | "activate_client"
   | "run_audit"
   | "send_prescription"
   | "build_spec"
@@ -22,6 +23,7 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t.includes("show pipeline") || t.includes("leads today")) return "view_pipeline";
   if (t.includes("pending approval")) return "view_approvals";
   if (t.startsWith("client signed")) return "onboard_client";
+  if (t.startsWith("activate client")) return "activate_client";
   if (t.startsWith("audit ")) return "run_audit";
   if (t.startsWith("send prescription for")) return "send_prescription";
   if (t.startsWith("build ")) return "build_spec";

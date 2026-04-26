@@ -78,6 +78,16 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       break;
     }
 
+    case "activate_client": {
+      // Strip "activate client" plus any separator (dash, colon, space) to get the name
+      const businessName = originalText
+        .replace(/^activate\s+client\W*/i, "")
+        .trim();
+      const { activateClient } = await import("@/agents/fulfillment/index");
+      await activateClient(businessName);
+      break;
+    }
+
     case "run_outreach": {
       await sendToChester("Starting outreach run — drafting emails for today's leads now.");
       const { runOutreach } = await import("@/agents/outreach/index");

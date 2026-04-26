@@ -60,6 +60,65 @@ export async function handleClientSigned(businessName: string): Promise<void> {
   }
 }
 
+// Called when Chester types "activate client - Business Name" after manually
+// filling make_scenario_id and webhook_url in the Clients sheet.
+export async function activateClient(businessName: string): Promise<void> {
+  const clients = await readSheetAsObjects("Clients");
+  const client = clients.find(
+    (c) => c["business_name"]?.toLowerCase() === businessName.toLowerCase().trim()
+  );
+
+  if (!client) {
+    await sendToChester(`Could not find "${businessName}" in the Clients sheet.`);
+    return;
+  }
+
+  const clientId = client["client_id"] ?? "";
+  const scenarioId = client["make_scenario_id"];
+  const webhookUrl = client["webhook_url"];
+
+  if (!scenarioId || !webhookUrl) {
+    await sendToChester(
+      `${businessName}: make_scenario_id and webhook_url are not filled in yet. Add both to the Clients sheet and try again.`
+    );
+    return;
+  }
+
+  await sendToChester(`Running end-to-end test for ${businessName}...`);
+
+  try {
+    const testResult = await runClientTest(clientId, webhookUrl);
+
+    await updateFieldByRowId("Clients", 0, clientId, 7, "active"); // col 7 = status
+
+    await log({
+      agent: "fulfillment",
+      action: "client_activated",
+      entityId: clientId,
+      status: "success",
+      metadata: { scenarioId, testPassed: testResult.passed } as unknown as Record<string, unknown>,
+    });
+
+    const testNote = testResult.passed
+      ? "End-to-end test passed."
+      : `Test note: ${testResult.details}`;
+
+    await sendToChester(
+      `${businessName} is live! Make scenario #${scenarioId} active.\n${testNote}\n\nFirst Response Rx is running for them.`,
+      "none"
+    );
+  } catch (err) {
+    await log({
+      agent: "fulfillment",
+      action: "activate_client_failed",
+      entityId: clientId,
+      status: "failure",
+      errorMessage: String(err),
+    });
+    await sendToChester(`Failed to activate ${businessName}: ${String(err)}`);
+  }
+}
+
 // Called by the Stripe webhook once payment clears.
 // Builds their Claude prompt, clones their Make scenario, runs the end-to-end test.
 export async function completeClientOnboarding(ownerEmail: string): Promise<void> {
