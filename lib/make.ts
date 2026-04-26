@@ -25,7 +25,7 @@ export async function cloneScenario(
   const res = await fetch(`${BASE}/scenarios/${templateScenarioId}/clone?${params}`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({ name: newName }),
+    body: JSON.stringify({ name: newName, states: [] }),
   });
 
   if (!res.ok) {
