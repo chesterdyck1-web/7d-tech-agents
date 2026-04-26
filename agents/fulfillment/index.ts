@@ -45,7 +45,8 @@ export async function handleClientSigned(businessName: string): Promise<void> {
     });
 
     await sendToChester(
-      `Invoice sent to ${client["owner_email"]}.\n\nPayment link: ${paymentLinkUrl}\n\nI will automatically provision their First Response Rx once payment clears.`
+      `Invoice sent to ${client["owner_email"]}.\n\nPayment link: ${paymentLinkUrl}\n\nI will automatically provision their First Response Rx once payment clears.`,
+      "none"
     );
   } catch (err) {
     await log({
