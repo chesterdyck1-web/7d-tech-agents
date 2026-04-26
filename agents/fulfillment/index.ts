@@ -101,12 +101,19 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
 
     await updateFieldByRowId("Clients", 0, clientId, 14, prompt); // col 14 = claude_prompt_version
 
-    const templateId = Number(env.MAKE_TEMPLATE_SCENARIO_ID);
-    const { scenarioId, webhookUrl } = await provisionMakeScenario(
-      clientId,
-      businessName,
-      templateId
-    );
+    // Make.com API does not support cloning scenarios with webhooks via API.
+    // Chester manually clones the template in Make UI, then enters the scenario ID
+    // and webhook URL in the Clients sheet. We check those are filled before proceeding.
+    const scenarioId = client["make_scenario_id"];
+    const webhookUrl = client["webhook_url"];
+
+    if (!scenarioId || !webhookUrl) {
+      await sendToChester(
+        `Payment confirmed for ${businessName}. Claude prompt is ready.\n\nNext step: clone the Make template scenario in Make.com UI, then add the scenario ID and webhook URL to the Clients sheet. I will run the final test once those are filled in.`,
+        "none"
+      );
+      return;
+    }
 
     const testResult = await runClientTest(clientId, webhookUrl);
 
@@ -125,7 +132,8 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
       : `Test note: ${testResult.details}`;
 
     await sendToChester(
-      `*${businessName} is live!*\nMake scenario #${scenarioId} active.\n${testNote}\n\nFirst Response Rx is running for them.`
+      `${businessName} is live! Make scenario #${scenarioId} active.\n${testNote}\n\nFirst Response Rx is running for them.`,
+      "none"
     );
   } catch (err) {
     await log({
