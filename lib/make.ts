@@ -22,6 +22,7 @@ export async function cloneScenario(
     headers: headers(),
     body: JSON.stringify({
       teamId: Number(env.MAKE_TEAM_ID),
+      organizationId: Number(env.MAKE_TEAM_ID),
       name: newName,
     }),
   });
