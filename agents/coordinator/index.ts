@@ -13,7 +13,7 @@ Chester Dyck is the founder. He messages you via Telegram to run his business.
 
 Your job: classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
-build_spec | run_prospecting | content_status | view_performance | get_summary | ask_question
+build_spec | run_prospecting | content_status | view_performance | view_intelligence | view_red_team | get_summary | ask_question
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -78,6 +78,26 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       break;
     }
 
+    case "submit_content": {
+      // Chester sends "new video - [Google Drive link]"
+      const driveUrl = originalText.replace(/^new video\W*/i, "").trim();
+      const { submitVideoForClipping } = await import("@/agents/content/index");
+      await submitVideoForClipping(driveUrl);
+      break;
+    }
+
+    case "content_status": {
+      const { readSheetAsObjects } = await import("@/lib/google-sheets");
+      const queue = await readSheetAsObjects("Content Queue");
+      const processing = queue.filter((r) => r["status"] === "processing").length;
+      const pending = queue.filter((r) => r["status"] === "pending_approval").length;
+      const posted = queue.filter((r) => r["status"] === "posted").length;
+      await sendToChester(
+        `*CONTENT STATUS*\nProcessing: ${processing}\nPending your approval: ${pending}\nPosted this month: ${posted}`
+      );
+      break;
+    }
+
     case "activate_client": {
       // Strip "activate client" plus any separator (dash, colon, space) to get the name
       const businessName = originalText
@@ -95,11 +115,31 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       break;
     }
 
+    case "build_spec": {
+      const { runBuildRequest } = await import("@/agents/builder/index");
+      await runBuildRequest(originalText);
+      break;
+    }
+
     case "run_audit":
       await sendToChester(
         "Audit Agent coming in Phase 5. Note the business name and URL and I will run it when that phase is live."
       );
       break;
+
+    case "view_intelligence": {
+      const { getLatestBrief } = await import("@/agents/intelligence/index");
+      const brief = await getLatestBrief();
+      await sendToChester(brief);
+      break;
+    }
+
+    case "view_red_team": {
+      const { getLatestRedTeamReport } = await import("@/agents/red-team/index");
+      const report = await getLatestRedTeamReport();
+      await sendToChester(report);
+      break;
+    }
 
     case "run_prospecting": {
       await sendToChester("Starting prospecting run now — I will message you when it is done.");

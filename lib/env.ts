@@ -35,6 +35,7 @@ const envSchema = z.object({
 
   // Publer
   PUBLER_API_KEY: z.string().min(1),
+  PUBLER_WORKSPACE_ID: z.string().min(1),
 
   // GitHub
   GITHUB_TOKEN: z.string().min(1),

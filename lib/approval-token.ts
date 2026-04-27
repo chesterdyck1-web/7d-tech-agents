@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { env } from "@/lib/env";
 
 // Chester's outreach approvals last 24h. Client First Response Rx approvals last 1h.
-type ApprovalType = "chester_outreach" | "client_response" | "builder_deploy";
+type ApprovalType = "chester_outreach" | "client_response" | "builder_deploy" | "content_post";
 
 export interface ApprovalTokenPayload {
   approvalId: string;

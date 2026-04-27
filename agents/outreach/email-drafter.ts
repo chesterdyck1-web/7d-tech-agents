@@ -18,7 +18,7 @@ export interface DraftedEmail {
   body: string;
 }
 
-const OUTREACH_SYSTEM_PROMPT = `
+export const OUTREACH_SYSTEM_PROMPT = `
 You are writing a cold outreach email on behalf of Chester Dyck at 7D Tech (7dtech.ca).
 
 7D Tech's product is First Response Rx: when a prospect fills a contact form, a personalized reply is drafted in 30 seconds, the owner approves it with one tap, it sends.

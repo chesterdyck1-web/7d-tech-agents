@@ -98,15 +98,26 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
 
   if (decision === "approve") {
-    // Send the email
-    await sendEmail({
-      to: row["to_email"] ?? "",
-      subject: row["subject"] ?? "",
-      bodyHtml: (row["body"] ?? "").replace(/\n/g, "<br>"),
-    });
-
     await updateFieldByRowId("Approval Queue", 0, payload.approvalId, 7, "approved");
     await updateFieldByRowId("Approval Queue", 0, payload.approvalId, 10, now);
+
+    if (row["type"] === "content_post") {
+      // clip URL stored in prospect_email field (col 5), caption in body (col 4)
+      const { postApprovedClip } = await import("@/agents/content/index");
+      await postApprovedClip(
+        row["prospect_email"] ?? "",
+        row["body"] ?? "",
+        row["to_name"] ?? "Video clip",
+        row["entity_id"] ?? payload.approvalId
+      );
+    } else {
+      // All other types — send the drafted email
+      await sendEmail({
+        to: row["to_email"] ?? "",
+        subject: row["subject"] ?? "",
+        bodyHtml: (row["body"] ?? "").replace(/\n/g, "<br>"),
+      });
+    }
 
     await log({
       agent: "coordinator",
