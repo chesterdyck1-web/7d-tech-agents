@@ -30,17 +30,17 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET: z.string().min(1),
 
-  // OpusClip
-  OPUS_CLIP_API_KEY: z.string().min(1),
+  // OpusClip (optional — content clipping won't work until set)
+  OPUS_CLIP_API_KEY: z.string().default(""),
 
-  // Publer
-  PUBLER_API_KEY: z.string().min(1),
-  PUBLER_WORKSPACE_ID: z.string().min(1),
+  // Publer (optional — social scheduling won't work until set)
+  PUBLER_API_KEY: z.string().default(""),
+  PUBLER_WORKSPACE_ID: z.string().default(""),
 
-  // GitHub
-  GITHUB_TOKEN: z.string().min(1),
-  GITHUB_REPO_OWNER: z.string().min(1),
-  GITHUB_REPO_NAME: z.string().min(1),
+  // GitHub (optional — Builder agent draft PRs won't work until set)
+  GITHUB_TOKEN: z.string().default(""),
+  GITHUB_REPO_OWNER: z.string().default(""),
+  GITHUB_REPO_NAME: z.string().default(""),
 
   // Security
   APPROVAL_SECRET: z.string().min(32),
