@@ -14,7 +14,8 @@ type Agent =
   | "redteam"
   | "builder"
   | "qa"
-  | "audit";
+  | "audit"
+  | "monitoring";
 
 type LogStatus = "success" | "failure" | "pending";
 

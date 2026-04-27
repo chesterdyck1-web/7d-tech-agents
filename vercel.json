@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/red-team",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/reply-tracker",
+      "schedule": "0 9,15 * * *"
+    },
+    {
+      "path": "/api/cron/monitor",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

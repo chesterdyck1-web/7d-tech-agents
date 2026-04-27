@@ -104,7 +104,14 @@ Track current phase here and update after each completed item:
   - [x] Red Team Agent (Red) — log auditor, script evaluator, monthly report
   - [x] Builder Agent (Beau) — spec parser, scaffolder, Make spec, Vapi config, GitHub draft PR
   - [x] Coordinator daily brief update (intel findings, red team flags, fixed performance alerts)
-- [ ] Phase 5: Hardening
+- [x] Phase 5: Hardening — completed April 26, 2026
+  - [x] Audit Agent — live check of client Make scenario + webhook test
+  - [x] Health check endpoint (/api/health) — tests Sheets, Gmail, Make, Claude
+  - [x] Reply Tracker — polls Gmail twice daily for prospect replies, alerts Chester
+  - [x] Failure Monitor — checks for 3+ consecutive failures every 6h, alerts immediately
+  - [x] Content Engagement — Publer analytics → weekly engagement score metric
+  - [x] Coordinator wired for run_audit with business name parsing
+  - [x] Two new crons: reply-tracker (9 AM + 3 PM), monitor (every 6h)
 
 ## Definition of Done
 A phase is complete when:

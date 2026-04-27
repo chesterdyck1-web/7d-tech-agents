@@ -55,6 +55,21 @@ export async function listScenarios(): Promise<{ id: number; name: string; isAct
   return data.scenarios ?? [];
 }
 
+// Get a single scenario's details — used by Audit Agent to verify it is active.
+export async function getScenario(
+  scenarioId: number
+): Promise<{ id: number; name: string; isActive: boolean }> {
+  const res = await fetch(
+    `${BASE}/scenarios/${scenarioId}?teamId=${env.MAKE_TEAM_ID}`,
+    { headers: headers() }
+  );
+  if (!res.ok) throw new Error(`Make.com getScenario error: ${await res.text()}`);
+  const data = (await res.json()) as {
+    scenario: { id: number; name: string; isActive: boolean };
+  };
+  return data.scenario;
+}
+
 // Activate a scenario so it starts running.
 export async function activateScenario(scenarioId: number): Promise<void> {
   const res = await fetch(`${BASE}/scenarios/${scenarioId}`, {

@@ -32,8 +32,8 @@ export async function runPerformanceReview(): Promise<void> {
     computeQAPassRate(weekStart),
     computeFulfillmentTime(weekStart),
     computeIntelBriefRating(weekStart),
-    // Outreach open/reply rates: require tracking pixel + reply webhook (Phase 5)
-    // Content engagement score: requires Publer analytics integration (Phase 5)
+    computeContentEngagement(weekStart),
+    // Outreach open/reply rates: require email tracking pixel (future)
   ]);
 
   await log({
@@ -146,6 +146,45 @@ async function computeQAPassRate(weekStart: string): Promise<void> {
     await log({
       agent: "coordinator",
       action: "compute_qa_pass_rate",
+      status: "failure",
+      errorMessage: String(err),
+    });
+  }
+}
+
+async function computeContentEngagement(weekStart: string): Promise<void> {
+  try {
+    const { getPostsWithAnalytics } = await import("@/lib/publer");
+    const posts = await getPostsWithAnalytics(7);
+
+    const postsWithImpressions = posts.filter((p) => p.impressions > 0);
+    if (postsWithImpressions.length === 0) return;
+
+    const avgEngagementRate =
+      postsWithImpressions.reduce(
+        (sum, p) => sum + p.engagements / p.impressions,
+        0
+      ) / postsWithImpressions.length;
+
+    // Normalize to a 1-5 score matching the benchmark
+    let score: number;
+    if (avgEngagementRate >= 0.05) score = 5;
+    else if (avgEngagementRate >= 0.025) score = 4;
+    else if (avgEngagementRate >= 0.01) score = 3;
+    else if (avgEngagementRate >= 0.005) score = 2;
+    else score = 1;
+
+    await writeMetric({
+      weekStart,
+      agent: "content",
+      metricKey: "content_avg_engagement_score",
+      value: score,
+      notes: `${postsWithImpressions.length} posts — avg engagement rate ${(avgEngagementRate * 100).toFixed(2)}%`,
+    });
+  } catch (err) {
+    await log({
+      agent: "coordinator",
+      action: "compute_content_engagement",
       status: "failure",
       errorMessage: String(err),
     });

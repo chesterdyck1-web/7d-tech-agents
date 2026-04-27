@@ -83,6 +83,55 @@ export async function listAccounts(): Promise<SocialAccount[]> {
   return data.accounts ?? data.data ?? [];
 }
 
+export interface PostAnalytics {
+  id: string;
+  impressions: number;
+  engagements: number; // likes + comments + shares
+  postedAt: string;
+}
+
+// Fetch posts published in the last N days with their engagement data.
+// Used by the Performance Agent to compute weekly content engagement score.
+export async function getPostsWithAnalytics(days: number): Promise<PostAnalytics[]> {
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const to = new Date().toISOString().slice(0, 10);
+
+  const res = await fetch(
+    `${BASE}/posts?from=${from}&to=${to}&per_page=50&status=published`,
+    { headers: headers() }
+  );
+  if (!res.ok) throw new Error(`Publer getPostsWithAnalytics error: ${await res.text()}`);
+
+  const data = (await res.json()) as {
+    data?: {
+      id: string;
+      created_at?: string;
+      analytics?: {
+        impressions?: number;
+        likes?: number;
+        comments?: number;
+        shares?: number;
+        total_engagements?: number;
+      };
+    }[];
+  };
+
+  return (data.data ?? []).map((post) => {
+    const a = post.analytics ?? {};
+    const engagements =
+      a.total_engagements ??
+      (a.likes ?? 0) + (a.comments ?? 0) + (a.shares ?? 0);
+    return {
+      id: post.id,
+      impressions: a.impressions ?? 0,
+      engagements,
+      postedAt: post.created_at ?? "",
+    };
+  });
+}
+
 // Upload a clip and auto-schedule it to every connected Publer account.
 export async function scheduleVideoToAllAccounts(
   clipUrl: string,

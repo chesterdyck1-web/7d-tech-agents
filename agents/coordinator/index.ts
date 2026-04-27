@@ -121,11 +121,17 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       break;
     }
 
-    case "run_audit":
-      await sendToChester(
-        "Audit Agent coming in Phase 5. Note the business name and URL and I will run it when that phase is live."
-      );
+    case "run_audit": {
+      // Strip "audit" prefix to get the business name: "audit Chester Test Gym" → "Chester Test Gym"
+      const auditTarget = originalText.replace(/^audit\s+/i, "").trim();
+      if (!auditTarget) {
+        await sendToChester(`Send me: audit [Business Name] — e.g. "audit Chester Test Gym"`);
+        break;
+      }
+      const { runAudit } = await import("@/agents/audit/index");
+      await runAudit(auditTarget);
       break;
+    }
 
     case "view_intelligence": {
       const { getLatestBrief } = await import("@/agents/intelligence/index");
