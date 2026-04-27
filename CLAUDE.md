@@ -103,7 +103,7 @@ Track current phase here and update after each completed item:
   - [x] Intelligence Agent (Iris) — competitor scraper, reviews miner, performance analyzer, weekly brief
   - [x] Red Team Agent (Red) — log auditor, script evaluator, monthly report
   - [x] Builder Agent (Beau) — spec parser, scaffolder, Make spec, Vapi config, GitHub draft PR
-  - [ ] Coordinator daily brief update (intel findings, red team flags)
+  - [x] Coordinator daily brief update (intel findings, red team flags, fixed performance alerts)
 - [ ] Phase 5: Hardening
 
 ## Definition of Done
