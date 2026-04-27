@@ -15,7 +15,12 @@ type Agent =
   | "builder"
   | "qa"
   | "audit"
-  | "monitoring";
+  | "monitoring"
+  | "alistair"
+  | "franklin"
+  | "lexington"
+  | "chichester"
+  | "dorian";
 
 type LogStatus = "success" | "failure" | "pending";
 

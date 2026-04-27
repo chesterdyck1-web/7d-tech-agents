@@ -13,7 +13,8 @@ Chester Dyck is the founder. He messages you via Telegram to run his business.
 
 Your job: classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
-build_spec | run_prospecting | content_status | view_performance | view_intelligence | view_red_team | get_summary | ask_question
+build_spec | run_prospecting | content_status | view_performance | view_intelligence | view_red_team |
+view_financial | view_coaching | view_tech_brief | get_summary | ask_question
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -144,6 +145,27 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       const { getLatestRedTeamReport } = await import("@/agents/red-team/index");
       const report = await getLatestRedTeamReport();
       await sendToChester(report);
+      break;
+    }
+
+    case "view_financial": {
+      const { getFinancialSummary } = await import("@/agents/franklin/index");
+      const summary = await getFinancialSummary();
+      await sendToChester(`*FRANKLIN — Financials*\n\n${summary}`);
+      break;
+    }
+
+    case "view_coaching": {
+      const { getCoachingBrief } = await import("@/agents/dorian/index");
+      const brief = await getCoachingBrief();
+      await sendToChester(`*DORIAN — Sales Coaching*\n\n${brief}`);
+      break;
+    }
+
+    case "view_tech_brief": {
+      const { getTechBrief } = await import("@/agents/chichester/index");
+      const brief = await getTechBrief();
+      await sendToChester(`*CHICHESTER — Tech Brief*\n\n${brief}`);
       break;
     }
 

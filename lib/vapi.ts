@@ -36,6 +36,35 @@ export async function createCall(params: VapiCallParams): Promise<string> {
   return data.id;
 }
 
+export interface VapiCall {
+  id: string;
+  status: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
+  transcript?: string;
+  endedReason?: string;
+  assistantId?: string;
+  metadata?: Record<string, string>;
+}
+
+// List recent Vapi calls with transcript data — used by Dorian for call analysis.
+export async function listCalls(limit = 100, createdAfterIso?: string): Promise<VapiCall[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (createdAfterIso) params.set("createdAtGt", createdAfterIso);
+
+  const res = await fetch(`${BASE}/call?${params}`, {
+    headers: {
+      Authorization: `Bearer ${env.VAPI_API_KEY}`,
+    },
+  });
+
+  if (!res.ok) throw new Error(`Vapi listCalls error: ${await res.text()}`);
+
+  const data = (await res.json()) as VapiCall[];
+  return Array.isArray(data) ? data : [];
+}
+
 // Create a Vapi assistant with the First Response Rx call script.
 // Returns the assistant ID — store this as VAPI_ASSISTANT_ID.
 export async function createAssistant(name: string, systemPrompt: string): Promise<string> {

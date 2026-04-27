@@ -95,7 +95,7 @@ Track current phase here and update after each completed item:
 - [x] Phase 1: Foundation — completed April 22, 2026
 - [x] Phase 2: Prospecting and Outreach — completed April 23, 2026
 - [x] Phase 3: Fulfillment and Product — completed April 26, 2026
-- [ ] Phase 4: Content and Intelligence — in progress April 26, 2026
+- [x] Phase 4: Content and Intelligence — completed April 26, 2026
   - [x] QA Agent (Quinn) — automation-tester, output-reviewer, stress-tester, unified runFullQA()
   - [x] lib/metrics.ts + config/benchmarks.ts
   - [x] Performance Metrics cron (Monday 6 AM ET)
@@ -112,6 +112,20 @@ Track current phase here and update after each completed item:
   - [x] Content Engagement — Publer analytics → weekly engagement score metric
   - [x] Coordinator wired for run_audit with business name parsing
   - [x] Two new crons: reply-tracker (9 AM + 3 PM), monitor (every 6h)
+- [x] Phase 7: Leadership Team — completed April 27, 2026
+  - [x] Alistair (Maintenance Agent) — daily system health check, auto-fix inactive Make scenarios
+  - [x] Franklin (CFO Agent) — daily revenue/costs/funds, profitability ratio, close rate, payment alerts
+  - [x] Lexington (Legal Agent) — weekly CASL audit, ToS monitoring, GST/HST deadline reminders
+  - [x] Chichester (CTO Agent) — weekly AI model currency check, npm dependency health
+  - [x] Cron routes for all four leadership agents
+  - [x] lib/stripe-reader.ts — Stripe revenue summary helper
+  - [x] lib/vapi.ts updated — listCalls() for transcript analysis
+- [x] Phase 8: Sales Intelligence and Pricing — completed April 27, 2026
+  - [x] Dorian (Sales Agent) — weekly Vapi call analysis, coaching brief, script update proposals
+  - [x] Franklin pricing loop — close rate thresholds trigger price-increase recommendation (Chester approval required)
+  - [x] Coordinator updated — view_financial, view_coaching, view_tech_brief intents
+  - [x] Daily brief updated — Franklin financial summary included every morning
+  - [x] Live dashboard at /dashboard — Victorian aesthetic, 8 live metrics, activity feed, PWA manifest
 
 ## Definition of Done
 A phase is complete when:

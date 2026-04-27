@@ -4,6 +4,7 @@
 
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
+import { getFinancialSummary } from "@/agents/franklin/index";
 
 function getMondayISO(): string {
   const d = new Date();
@@ -21,7 +22,7 @@ function getCurrentMonthISO(): string {
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports] =
+  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary] =
     await Promise.all([
       readSheetAsObjects("Approval Queue"),
       readSheetAsObjects("Daily Leads"),
@@ -30,6 +31,7 @@ export async function sendDailySummary(): Promise<void> {
       readSheetAsObjects("Content Queue"),
       readSheetAsObjects("Intelligence Briefs").catch(() => []),
       readSheetAsObjects("Red Team Reports").catch(() => []),
+      getFinancialSummary().catch(() => null),
     ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -123,6 +125,12 @@ export async function sendDailySummary(): Promise<void> {
   if (redTeamFlag) {
     brief += `*RED TEAM ALERT*\n`;
     brief += `  ${redTeamFlag["severity"]!.toUpperCase()} severity finding this month — reply "red team report" for details\n\n`;
+  }
+
+  // Financial summary (from Franklin)
+  if (financialSummary) {
+    brief += `*FINANCIALS*\n`;
+    brief += `  ${financialSummary}\n\n`;
   }
 
   // Approvals reminder at the bottom

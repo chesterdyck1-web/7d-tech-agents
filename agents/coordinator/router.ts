@@ -16,6 +16,9 @@ export type Intent =
   | "view_performance"
   | "view_intelligence"
   | "view_red_team"
+  | "view_financial"
+  | "view_coaching"
+  | "view_tech_brief"
   | "get_summary"
   | "ask_question";
 
@@ -37,6 +40,9 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t === "performance" || t.includes("how are agents doing")) return "view_performance";
   if (t === "intel brief" || t.includes("intelligence brief") || t === "what did iris find") return "view_intelligence";
   if (t === "red team report" || t.includes("red team") || t === "what did red find") return "view_red_team";
+  if (t === "financials" || t.includes("financial summary") || t === "mrr" || t === "how are we doing financially") return "view_financial";
+  if (t === "coaching brief" || t.includes("call coaching") || t === "how are calls going") return "view_coaching";
+  if (t === "tech brief" || t.includes("tech update") || t === "any upgrades needed") return "view_tech_brief";
   if (t === "daily brief") return "get_summary";
 
   return null; // Fall through to Claude classification
