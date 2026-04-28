@@ -34,11 +34,11 @@
     },
     {
       "path": "/api/cron/reply-tracker",
-      "schedule": "0 9,15 * * *"
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/cron/monitor",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/dorian",
