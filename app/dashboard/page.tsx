@@ -16,18 +16,21 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [secret, setSecret] = useState<string>("");
+  const [secret, setSecret] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const fetchData = useCallback(async (s: string) => {
+    setLoading(true);
     try {
       const res = await fetch(`/api/dashboard/data?secret=${encodeURIComponent(s)}`);
       if (res.status === 401) {
-        setError("Invalid access key.");
+        setError("Incorrect access key.");
         setAuthenticated(false);
+        setLoading(false);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
       const json = (await res.json()) as DashboardData;
       setData(json);
       setLastRefresh(new Date());
@@ -35,10 +38,11 @@ export default function DashboardPage() {
       setAuthenticated(true);
     } catch (err) {
       setError(String(err));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Auto-refresh every 60 seconds when authenticated
   useEffect(() => {
     if (!authenticated || !secret) return;
     const interval = setInterval(() => void fetchData(secret), 60_000);
@@ -52,301 +56,351 @@ export default function DashboardPage() {
 
   if (!authenticated) {
     return (
-      <main style={s.main}>
-        <div style={s.loginBox}>
-          <div style={s.crest}>⚜</div>
-          <h1 style={s.title}>7D Tech Command</h1>
-          <p style={s.subtitle}>Enter access key to proceed</p>
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <input
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Access key"
-              style={s.input}
-              autoFocus
-            />
-            <button type="submit" style={s.button}>Enter</button>
-          </form>
-          {error && <p style={s.errorText}>{error}</p>}
+      <div style={s.root}>
+        <div style={s.loginWrap}>
+          <div style={s.loginCard}>
+            <div style={s.loginCrest}>⚜</div>
+            <div style={s.loginTitle}>7D TECH</div>
+            <div style={s.loginSub}>Command Centre</div>
+            <div style={s.loginRule} />
+            <form onSubmit={handleLogin} style={s.loginForm}>
+              <input
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder="Access key"
+                style={s.loginInput}
+                autoFocus
+              />
+              <button type="submit" style={s.loginBtn} disabled={loading}>
+                {loading ? "Verifying..." : "Enter"}
+              </button>
+            </form>
+            {error && <div style={s.loginError}>{error}</div>}
+          </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <main style={s.main}>
-        <p style={s.muted}>Loading...</p>
-      </main>
+      <div style={s.root}>
+        <div style={s.centered}>Loading...</div>
+      </div>
     );
   }
 
-  const profitColor =
-    data.financial.profitabilityRatio >= 2
-      ? "#6fcf6f"
-      : data.financial.profitabilityRatio >= 1
-      ? "#c9a227"
-      : "#e05c5c";
-
-  const healthColor = data.agentHealth.recentFailures === 0 ? "#6fcf6f" : "#e05c5c";
+  const ratio = data.financial.profitabilityRatio;
+  const ratioColor = ratio >= 2 ? "#5db87a" : ratio >= 1 ? "#c9a227" : "#d95f5f";
+  const healthOk = data.agentHealth.recentFailures === 0;
 
   return (
-    <main style={s.main}>
-      <div style={s.page}>
-        {/* Header */}
-        <header style={s.header}>
-          <span style={s.crestSmall}>⚜</span>
-          <h1 style={s.headerTitle}>7D TECH COMMAND</h1>
-          <span style={s.crestSmall}>⚜</span>
-        </header>
-        <div style={s.divider} />
+    <div style={s.root}>
+      {/* Header */}
+      <header style={s.header}>
+        <span style={s.headerCrest}>⚜</span>
+        <span style={s.headerTitle}>7D TECH COMMAND</span>
+        <span style={s.headerCrest}>⚜</span>
+      </header>
+      <div style={s.headerRule} />
 
-        {/* Metrics Grid */}
-        <div style={s.grid}>
-          <MetricCard label="Monthly Revenue" value={`$${data.financial.mrr} CAD`} sub="MRR" />
-          <MetricCard
-            label="Profitability"
-            value={`${data.financial.profitabilityRatio}×`}
-            sub="target: 2×"
-            valueColor={profitColor}
-          />
-          <MetricCard label="Active Clients" value={String(data.clients.active)} sub={data.clients.onboarding > 0 ? `+ ${data.clients.onboarding} onboarding` : "all active"} />
-          <MetricCard label="Close Rate" value={`${data.financial.closeRate}%`} sub="this week" />
-          <MetricCard label="Operating Fund" value={`$${data.financial.operatingFund} CAD`} sub="reserve" />
-          <MetricCard label="Today's Leads" value={String(data.pipeline.todayLeads)} sub={`${data.pipeline.pendingApprovals} pending approval`} />
-          <MetricCard
-            label="Agent Health"
-            value={data.agentHealth.recentFailures === 0 ? "All Clear" : `${data.agentHealth.recentFailures} failures`}
-            sub="last 24 hours"
-            valueColor={healthColor}
-          />
-          <MetricCard label="Content" value={String(data.content.posted)} sub={`${data.content.pending} pending approval`} />
+      {/* Top metrics — financial row */}
+      <div style={s.section}>
+        <div style={s.sectionLabel}>Financials</div>
+        <div style={s.row4}>
+          <Tile label="Monthly Revenue" value={`$${data.financial.mrr}`} unit="CAD" />
+          <Tile label="Profitability" value={`${ratio}×`} unit="target 2×" accent={ratioColor} />
+          <Tile label="Operating Fund" value={`$${data.financial.operatingFund}`} unit="CAD" />
+          <Tile label="Close Rate" value={`${data.financial.closeRate}%`} unit="this week" />
         </div>
-
-        <div style={s.divider} />
-
-        {/* Activity Feed */}
-        <section style={s.section}>
-          <h2 style={s.sectionTitle}>Recent Activity</h2>
-          <div style={s.feed}>
-            {data.recentActions.length === 0 && (
-              <p style={s.muted}>No recent actions.</p>
-            )}
-            {data.recentActions.map((a, i) => (
-              <div key={i} style={s.feedRow}>
-                <span style={{ ...s.feedStatus, color: a.status === "failure" ? "#e05c5c" : "#6fcf6f" }}>
-                  {a.status === "failure" ? "✕" : "✓"}
-                </span>
-                <span style={s.feedAgent}>{a.agent}</span>
-                <span style={s.feedAction}>{a.action.replace(/_/g, " ")}</span>
-                <span style={s.feedTime}>{a.timestamp ? new Date(a.timestamp).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div style={s.divider} />
-
-        <footer style={s.footer}>
-          {lastRefresh && (
-            <span>Last updated: {lastRefresh.toLocaleTimeString("en-CA")} — auto-refreshes every 60s</span>
-          )}
-        </footer>
       </div>
-    </main>
-  );
-}
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  valueColor,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueColor?: string;
-}) {
-  return (
-    <div style={s.card}>
-      <div style={s.cardLabel}>{label}</div>
-      <div style={{ ...s.cardValue, color: valueColor ?? "#f5f0e8" }}>{value}</div>
-      {sub && <div style={s.cardSub}>{sub}</div>}
+      <div style={s.rule} />
+
+      {/* Second row — operations */}
+      <div style={s.section}>
+        <div style={s.sectionLabel}>Operations</div>
+        <div style={s.row4}>
+          <Tile label="Active Clients" value={String(data.clients.active)} unit={data.clients.onboarding > 0 ? `+${data.clients.onboarding} onboarding` : "all active"} />
+          <Tile label="Pending Approvals" value={String(data.pipeline.pendingApprovals)} unit="awaiting your tap" accent={data.pipeline.pendingApprovals > 0 ? "#c9a227" : undefined} />
+          <Tile label="Today's Leads" value={String(data.pipeline.todayLeads)} unit="new today" />
+          <Tile label="Agent Health" value={healthOk ? "Clear" : `${data.agentHealth.recentFailures} err`} unit="last 24 h" accent={healthOk ? "#5db87a" : "#d95f5f"} />
+        </div>
+      </div>
+
+      <div style={s.rule} />
+
+      {/* Activity feed */}
+      <div style={s.section}>
+        <div style={s.sectionLabel}>Recent Activity</div>
+        <div style={s.feed}>
+          {data.recentActions.length === 0 && (
+            <div style={s.feedEmpty}>No recent agent actions.</div>
+          )}
+          {data.recentActions.map((a, i) => (
+            <div key={i} style={s.feedRow}>
+              <span style={{ ...s.dot, background: a.status === "failure" ? "#d95f5f" : "#5db87a" }} />
+              <span style={s.feedAgent}>{a.agent}</span>
+              <span style={s.feedAction}>{a.action.replace(/_/g, " ")}</span>
+              <span style={s.feedTime}>
+                {a.timestamp
+                  ? new Date(a.timestamp).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })
+                  : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={s.rule} />
+
+      <footer style={s.footer}>
+        {lastRefresh && <>Last updated {lastRefresh.toLocaleTimeString("en-CA")} · auto-refreshes every 60 s</>}
+      </footer>
     </div>
   );
 }
 
+function Tile({
+  label,
+  value,
+  unit,
+  accent,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  accent?: string;
+}) {
+  return (
+    <div style={s.tile}>
+      <div style={s.tileLabel}>{label}</div>
+      <div style={{ ...s.tileValue, color: accent ?? "#f5f0e8" }}>{value}</div>
+      {unit && <div style={s.tileUnit}>{unit}</div>}
+    </div>
+  );
+}
+
+const GOLD = "#c9a227";
+const CREAM = "#f5f0e8";
+const BG = "#0f0e0d";
+const SURFACE = "#161513";
+const BORDER = "#2a2825";
+const MUTED = "#665f57";
+
 const s: Record<string, React.CSSProperties> = {
-  main: {
+  root: {
     minHeight: "100vh",
-    backgroundColor: "#0f0e0d",
-    color: "#f5f0e8",
-    fontFamily: "'Georgia', serif",
-    padding: "2rem 1rem",
+    backgroundColor: BG,
+    color: CREAM,
+    fontFamily: "'Georgia', 'Times New Roman', serif",
+    padding: "2.5rem 2rem",
+    boxSizing: "border-box",
   },
-  page: {
-    maxWidth: "900px",
-    margin: "0 auto",
+  centered: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+    color: MUTED,
   },
+
   // Login
-  loginBox: {
-    maxWidth: "360px",
-    margin: "10vh auto 0",
-    textAlign: "center",
+  loginWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+  },
+  loginCard: {
+    width: "100%",
+    maxWidth: "340px",
+    backgroundColor: SURFACE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "2px",
+    padding: "3rem 2.5rem",
     display: "flex",
     flexDirection: "column",
-    gap: "1.25rem",
+    alignItems: "center",
+    gap: "0.6rem",
   },
-  crest: {
-    fontSize: "2.5rem",
-    color: "#c9a227",
+  loginCrest: {
+    fontSize: "1.8rem",
+    color: GOLD,
+    marginBottom: "0.25rem",
   },
-  title: {
-    fontSize: "1.5rem",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    color: "#f5f0e8",
-    margin: 0,
-  },
-  subtitle: {
-    color: "#888",
-    fontSize: "0.9rem",
-    margin: 0,
-  },
-  input: {
-    backgroundColor: "#1a1917",
-    border: "1px solid #3a3632",
-    borderRadius: "4px",
-    color: "#f5f0e8",
-    fontFamily: "'Georgia', serif",
+  loginTitle: {
     fontSize: "1rem",
-    padding: "0.75rem 1rem",
-    outline: "none",
+    letterSpacing: "0.2em",
+    color: CREAM,
   },
-  button: {
-    backgroundColor: "#c9a227",
+  loginSub: {
+    fontSize: "0.7rem",
+    letterSpacing: "0.14em",
+    color: MUTED,
+    textTransform: "uppercase" as const,
+  },
+  loginRule: {
+    width: "2rem",
+    height: "1px",
+    backgroundColor: BORDER,
+    margin: "1rem 0",
+  },
+  loginForm: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.75rem",
+    width: "100%",
+  },
+  loginInput: {
+    backgroundColor: BG,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "2px",
+    color: CREAM,
+    fontFamily: "'Georgia', serif",
+    fontSize: "0.9rem",
+    padding: "0.7rem 0.9rem",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box" as const,
+  },
+  loginBtn: {
+    backgroundColor: GOLD,
     border: "none",
-    borderRadius: "4px",
-    color: "#0f0e0d",
+    borderRadius: "2px",
+    color: BG,
     cursor: "pointer",
     fontFamily: "'Georgia', serif",
-    fontSize: "1rem",
-    fontWeight: "bold",
-    letterSpacing: "0.08em",
-    padding: "0.75rem 1.5rem",
-    textTransform: "uppercase",
+    fontSize: "0.8rem",
+    fontWeight: "bold" as const,
+    letterSpacing: "0.12em",
+    padding: "0.7rem",
+    textTransform: "uppercase" as const,
+    width: "100%",
   },
-  errorText: {
-    color: "#e05c5c",
-    fontSize: "0.85rem",
+  loginError: {
+    color: "#d95f5f",
+    fontSize: "0.78rem",
+    marginTop: "0.5rem",
+    textAlign: "center" as const,
   },
+
   // Dashboard
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "1rem",
-    paddingBottom: "1rem",
+    gap: "1.25rem",
+    marginBottom: "1.5rem",
+  },
+  headerCrest: {
+    color: GOLD,
+    fontSize: "1rem",
+    opacity: 0.6,
   },
   headerTitle: {
-    fontSize: "1.4rem",
-    letterSpacing: "0.18em",
-    color: "#c9a227",
-    margin: 0,
-    fontWeight: "normal",
+    fontSize: "0.8rem",
+    letterSpacing: "0.25em",
+    color: CREAM,
   },
-  crestSmall: {
-    fontSize: "1.2rem",
-    color: "#c9a227",
-    opacity: 0.7,
+  headerRule: {
+    borderTop: `1px solid ${BORDER}`,
+    marginBottom: "2.5rem",
   },
-  divider: {
-    borderTop: "1px solid #3a3632",
-    margin: "1.5rem 0",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-    gap: "1rem",
-  },
-  card: {
-    backgroundColor: "#1a1917",
-    border: "1px solid #3a3632",
-    borderRadius: "6px",
-    padding: "1.25rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.4rem",
-  },
-  cardLabel: {
-    fontSize: "0.7rem",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    color: "#888",
-  },
-  cardValue: {
-    fontSize: "1.8rem",
-    color: "#f5f0e8",
-    lineHeight: 1.1,
-  },
-  cardSub: {
-    fontSize: "0.75rem",
-    color: "#666",
+  rule: {
+    borderTop: `1px solid ${BORDER}`,
+    margin: "2rem 0",
   },
   section: {
+    marginBottom: "0.25rem",
+  },
+  sectionLabel: {
+    fontSize: "0.65rem",
+    letterSpacing: "0.16em",
+    color: GOLD,
+    textTransform: "uppercase" as const,
+    marginBottom: "1rem",
+    opacity: 0.8,
+  },
+  row4: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "1px",
+    backgroundColor: BORDER,
+    border: `1px solid ${BORDER}`,
+  },
+  tile: {
+    backgroundColor: SURFACE,
+    padding: "1.25rem 1.5rem",
     display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
+    flexDirection: "column" as const,
+    gap: "0.3rem",
   },
-  sectionTitle: {
-    fontSize: "0.75rem",
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-    color: "#c9a227",
-    margin: 0,
-    fontWeight: "normal",
+  tileLabel: {
+    fontSize: "0.65rem",
+    letterSpacing: "0.1em",
+    color: MUTED,
+    textTransform: "uppercase" as const,
   },
+  tileValue: {
+    fontSize: "2rem",
+    lineHeight: 1,
+    color: CREAM,
+    fontWeight: "normal" as const,
+  },
+  tileUnit: {
+    fontSize: "0.7rem",
+    color: MUTED,
+    marginTop: "0.15rem",
+  },
+
+  // Feed
   feed: {
     display: "flex",
-    flexDirection: "column",
-    gap: "0.4rem",
+    flexDirection: "column" as const,
+    border: `1px solid ${BORDER}`,
+  },
+  feedEmpty: {
+    padding: "1.25rem 1.5rem",
+    color: MUTED,
+    fontSize: "0.85rem",
   },
   feedRow: {
     display: "grid",
     gridTemplateColumns: "1.5rem 7rem 1fr 4rem",
-    gap: "0.75rem",
     alignItems: "center",
-    fontSize: "0.85rem",
-    padding: "0.4rem 0",
-    borderBottom: "1px solid #1e1d1b",
+    gap: "0.75rem",
+    padding: "0.75rem 1rem",
+    borderBottom: `1px solid ${BORDER}`,
+    fontSize: "0.82rem",
   },
-  feedStatus: {
-    textAlign: "center",
-    fontWeight: "bold",
+  dot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    display: "inline-block",
+    flexShrink: 0,
   },
   feedAgent: {
-    color: "#c9a227",
-    opacity: 0.9,
+    color: GOLD,
+    opacity: 0.85,
+    fontSize: "0.78rem",
+    letterSpacing: "0.04em",
   },
   feedAction: {
-    color: "#b8b0a4",
+    color: "#9a9088",
+    fontSize: "0.82rem",
   },
   feedTime: {
-    color: "#555",
-    textAlign: "right",
-    fontSize: "0.75rem",
+    color: MUTED,
+    fontSize: "0.72rem",
+    textAlign: "right" as const,
   },
   footer: {
-    textAlign: "center",
-    fontSize: "0.7rem",
-    color: "#444",
-    paddingTop: "0.5rem",
-  },
-  muted: {
-    color: "#555",
-    textAlign: "center",
-    fontSize: "0.9rem",
+    textAlign: "center" as const,
+    fontSize: "0.68rem",
+    color: MUTED,
+    marginTop: "0.5rem",
   },
 };
