@@ -38,35 +38,58 @@ img {
   display: block;
 }
 
-/* Button hover effects */
+/* Button transitions — spring cubic-bezier per taste-skill */
 .btn-gold-filled {
-  transition: box-shadow 0.2s ease, background 0.2s ease;
+  transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-gold-filled:hover {
   background: #d4a94a !important;
-  box-shadow: 0 0 28px rgba(201, 150, 60, 0.45);
+  box-shadow: 0 0 32px rgba(201, 150, 60, 0.38),
+              inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.btn-gold-filled:active {
+  transform: scale(0.98) translateY(1px);
 }
 
 .btn-gold-outline {
-  transition: box-shadow 0.2s ease, background 0.2s ease;
+  transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-gold-outline:hover {
-  background: rgba(201, 150, 60, 0.12) !important;
-  box-shadow: 0 0 20px rgba(201, 150, 60, 0.25);
+  background: rgba(201, 150, 60, 0.1) !important;
+  box-shadow: 0 0 20px rgba(201, 150, 60, 0.2),
+              inset 0 1px 0 rgba(201, 150, 60, 0.15);
+}
+.btn-gold-outline:active {
+  transform: scale(0.98) translateY(1px);
 }
 
 .nav-link-item {
-  transition: color 0.15s ease;
+  transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .nav-link-item:hover {
   color: #c9963c !important;
 }
 
 .faq-item {
-  transition: border-color 0.2s ease;
+  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .faq-item:hover {
   border-color: rgba(201, 150, 60, 0.4) !important;
+}
+
+/* Step card hover */
+.step-card {
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.step-card:hover {
+  border-color: rgba(201, 150, 60, 0.55) !important;
+  transform: translateY(-2px);
 }
 
 /* Ornamental corners via pseudo-elements */
@@ -79,17 +102,18 @@ img {
   position: absolute;
   color: #c9963c;
   font-size: 0.6rem;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 .panel-corners::before { top: 0.6rem; left: 0.6rem; }
 .panel-corners::after  { bottom: 0.6rem; right: 0.6rem; }
 
-/* Responsive grid */
+/* Responsive */
 @media (max-width: 768px) {
   .grid-2col { grid-template-columns: 1fr !important; }
   .grid-4col { grid-template-columns: 1fr 1fr !important; }
   .hero-btns { flex-direction: column !important; align-items: stretch !important; }
   .hide-mobile { display: none !important; }
+  .steps-zigzag { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 480px) {

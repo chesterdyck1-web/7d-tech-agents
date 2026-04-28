@@ -149,51 +149,48 @@ export default function Home() {
         <BtnFilled href="#book-demo">Book a Demo</BtnFilled>
       </nav>
 
-      {/* ── 2. HERO ── */}
+      {/* ── 2. HERO — left-aligned asymmetric layout ── */}
       <section style={{
         position: "relative" as const,
         minHeight: "92vh",
         display: "flex",
-        flexDirection: "column" as const,
         alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center" as const,
-        padding: "6rem 2rem 4rem",
-        backgroundImage: `linear-gradient(rgba(26,20,16,0.62), rgba(45,31,20,0.88)), url('/hero_image.jpg')`,
+        padding: "6rem 3rem 6rem",
+        backgroundImage: `linear-gradient(105deg, rgba(26,20,16,0.95) 45%, rgba(26,20,16,0.5) 100%), url('/hero_image.jpg')`,
         backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
+        backgroundPosition: "center right",
       }}>
-        <SectionLabel>First Response Rx</SectionLabel>
-        <h1 style={{
-          fontFamily: "var(--font-playfair), Georgia, serif",
-          fontSize: "clamp(2.6rem, 6vw, 5rem)",
-          fontWeight: 700,
-          color: CREAM,
-          maxWidth: "820px",
-          lineHeight: 1.1,
-          marginBottom: "1.75rem",
-        }}>
-          The Right First Response.<br />Every Time.
-        </h1>
-        <p style={{
-          fontFamily: "var(--font-garamond), Georgia, serif",
-          fontSize: "clamp(1.05rem, 2vw, 1.3rem)",
-          color: "rgba(245,240,232,0.85)",
-          maxWidth: "600px",
-          lineHeight: 1.75,
-          marginBottom: "2.75rem",
-        }}>
-          When a prospect fills out your contact form, a personalized reply is drafted
-          in 30&nbsp;seconds. You approve it with one tap. It sends.
-        </p>
-        <div className="hero-btns" style={{ display: "flex", gap: "1rem", flexWrap: "wrap" as const, justifyContent: "center" }}>
-          <BtnFilled href="#book-demo">Book a Demo</BtnFilled>
-          <BtnOutline href="#apply">Apply for Beta</BtnOutline>
+        <div style={{ maxWidth: "680px" }}>
+          <SectionLabel>First Response Rx</SectionLabel>
+          <h1 style={{
+            fontFamily: "var(--font-playfair), Georgia, serif",
+            fontSize: "clamp(2.8rem, 5.5vw, 5.2rem)",
+            fontWeight: 700,
+            color: CREAM,
+            lineHeight: 1.08,
+            marginBottom: "1.75rem",
+            letterSpacing: "-0.01em",
+          }}>
+            The Right First Response.<br />Every Time.
+          </h1>
+          <p style={{
+            fontFamily: "var(--font-garamond), Georgia, serif",
+            fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
+            color: "rgba(245,240,232,0.8)",
+            maxWidth: "520px",
+            lineHeight: 1.8,
+            marginBottom: "2.75rem",
+          }}>
+            When a prospect fills out your contact form, a personalized reply is drafted
+            in 30&nbsp;seconds. You approve it with one tap. It sends.
+          </p>
+          <div className="hero-btns" style={{ display: "flex", gap: "1rem", flexWrap: "wrap" as const }}>
+            <BtnFilled href="#book-demo">Book a Demo</BtnFilled>
+            <BtnOutline href="#apply">Apply for Beta</BtnOutline>
+          </div>
         </div>
 
-        {/* Bottom ornamental divider */}
-        <div style={{ position: "absolute" as const, bottom: "2rem", left: "10%", right: "10%" }}>
+        <div style={{ position: "absolute" as const, bottom: "2rem", left: "3rem", right: "3rem" }}>
           <Divider />
         </div>
       </section>
@@ -275,50 +272,95 @@ export default function Home() {
 
       <div style={{ padding: "0 3rem" }}><Divider /></div>
 
-      {/* ── 5. HOW IT WORKS ── */}
+      {/* ── 5. HOW IT WORKS — numbered zig-zag, no equal-card grid ── */}
       <section style={{ ...sectionOverlay(MAHOGANY), padding: "6rem 3rem" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center" as const, marginBottom: "4rem" }}>
+        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+          <div style={{ marginBottom: "4.5rem" }}>
             <SectionLabel>The Process</SectionLabel>
             <h2 style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)", color: CREAM, fontFamily: "var(--font-playfair), Georgia, serif" }}>
               Four steps. Thirty seconds.
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1.5rem" }} className="grid-4col">
+
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: "0" }}>
             {[
-              { num: "I", icon: "✉", title: "Prospect submits your form", body: "A lead fills out the contact form on your website — any time of day, any day of the week." },
-              { num: "II", icon: "⚗", title: "Reply drafted in 30 seconds", body: "A personalized reply is composed for that specific prospect — their name, their enquiry, your voice." },
-              { num: "III", icon: "✦", title: "You approve with one tap", body: "A notification reaches your phone. Read the draft. Approve or dismiss — the choice is always yours." },
-              { num: "IV", icon: "⚜", title: "Lead hears back immediately", body: "The reply sends from your email address. Your prospect feels heard before they have moved on." },
-            ].map((step) => (
+              { num: "I", icon: "✉", title: "Prospect submits your form", body: "A lead fills out the contact form on your website — any time of day, any day of the week. No action required on your end.", align: "left" },
+              { num: "II", icon: "⚗", title: "Reply drafted in 30 seconds", body: "A personalized reply is composed for that specific prospect — their name, their enquiry, your voice. Not a template.", align: "right" },
+              { num: "III", icon: "✦", title: "You approve with one tap", body: "A notification reaches your phone. Read the draft. Approve or dismiss — the choice is always yours, every time.", align: "left" },
+              { num: "IV", icon: "⚜", title: "Lead hears back immediately", body: "The reply sends from your email address. Your prospect feels heard before they have had time to contact anyone else.", align: "right" },
+            ].map((step, i) => (
               <div
                 key={step.num}
-                className="panel-corners"
+                className="step-card"
                 style={{
-                  backgroundColor: BG,
-                  border: `1px solid rgba(201,150,60,0.3)`,
-                  padding: "2rem 1.5rem",
-                  position: "relative" as const,
+                  display: "grid",
+                  gridTemplateColumns: step.align === "left" ? "5rem 1fr" : "1fr 5rem",
+                  gap: "0",
+                  borderTop: i === 0 ? `1px solid rgba(201,150,60,0.2)` : "none",
+                  borderBottom: `1px solid rgba(201,150,60,0.2)`,
+                  borderLeft: `1px solid rgba(201,150,60,0.2)`,
+                  borderRight: `1px solid rgba(201,150,60,0.2)`,
                 }}
               >
-                <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", color: GOLD, marginBottom: "1rem", opacity: 0.6 }}>
-                  {step.num}
-                </div>
-                <div style={{ fontSize: "1.6rem", color: GOLD, marginBottom: "1rem", opacity: 0.8 }}>
-                  {step.icon}
-                </div>
-                <h3 style={{
-                  fontFamily: "var(--font-playfair), Georgia, serif",
-                  fontSize: "1rem",
-                  color: CREAM,
-                  marginBottom: "0.75rem",
-                  lineHeight: 1.3,
+                {/* Large roman numeral — always on the "outside" */}
+                {step.align === "left" && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRight: `1px solid rgba(201,150,60,0.15)`,
+                    padding: "2.5rem 0",
+                    backgroundColor: "rgba(26,20,16,0.6)",
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-playfair), Georgia, serif",
+                      fontSize: "2rem",
+                      color: GOLD,
+                      opacity: 0.5,
+                      letterSpacing: "0.05em",
+                    }}>{step.num}</span>
+                  </div>
+                )}
+                {/* Content */}
+                <div style={{
+                  padding: "2.5rem 3rem",
+                  backgroundColor: i % 2 === 0 ? BG : "rgba(45,31,20,0.5)",
                 }}>
-                  {step.title}
-                </h3>
-                <p style={{ fontSize: "0.88rem", color: MUTED, lineHeight: 1.75 }}>
-                  {step.body}
-                </p>
+                  <div style={{ fontSize: "1.4rem", color: GOLD, opacity: 0.7, marginBottom: "0.75rem" }}>
+                    {step.icon}
+                  </div>
+                  <h3 style={{
+                    fontFamily: "var(--font-playfair), Georgia, serif",
+                    fontSize: "1.15rem",
+                    color: CREAM,
+                    marginBottom: "0.6rem",
+                    lineHeight: 1.3,
+                  }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ fontSize: "0.95rem", color: MUTED, lineHeight: 1.8 }}>
+                    {step.body}
+                  </p>
+                </div>
+                {/* Numeral on right side */}
+                {step.align === "right" && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderLeft: `1px solid rgba(201,150,60,0.15)`,
+                    padding: "2.5rem 0",
+                    backgroundColor: "rgba(26,20,16,0.6)",
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-playfair), Georgia, serif",
+                      fontSize: "2rem",
+                      color: GOLD,
+                      opacity: 0.5,
+                      letterSpacing: "0.05em",
+                    }}>{step.num}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
