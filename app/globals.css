@@ -7,13 +7,20 @@
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  background-color: #faf9f7;
-  color: #1a1a1a;
-  line-height: 1.6;
+  font-family: var(--font-garamond), 'Georgia', 'Times New Roman', serif;
+  background-color: #1a1410;
+  color: #f5f0e8;
+  line-height: 1.7;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-playfair), 'Georgia', serif;
+  font-weight: 400;
+  line-height: 1.2;
 }
 
 a {
@@ -23,5 +30,68 @@ a {
 
 button {
   cursor: pointer;
-  font-family: inherit;
+  font-family: var(--font-garamond), 'Georgia', serif;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Button hover effects */
+.btn-gold-filled {
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.btn-gold-filled:hover {
+  background: #d4a94a !important;
+  box-shadow: 0 0 28px rgba(201, 150, 60, 0.45);
+}
+
+.btn-gold-outline {
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.btn-gold-outline:hover {
+  background: rgba(201, 150, 60, 0.12) !important;
+  box-shadow: 0 0 20px rgba(201, 150, 60, 0.25);
+}
+
+.nav-link-item {
+  transition: color 0.15s ease;
+}
+.nav-link-item:hover {
+  color: #c9963c !important;
+}
+
+.faq-item {
+  transition: border-color 0.2s ease;
+}
+.faq-item:hover {
+  border-color: rgba(201, 150, 60, 0.4) !important;
+}
+
+/* Ornamental corners via pseudo-elements */
+.panel-corners {
+  position: relative;
+}
+.panel-corners::before,
+.panel-corners::after {
+  content: '✦';
+  position: absolute;
+  color: #c9963c;
+  font-size: 0.6rem;
+  opacity: 0.5;
+}
+.panel-corners::before { top: 0.6rem; left: 0.6rem; }
+.panel-corners::after  { bottom: 0.6rem; right: 0.6rem; }
+
+/* Responsive grid */
+@media (max-width: 768px) {
+  .grid-2col { grid-template-columns: 1fr !important; }
+  .grid-4col { grid-template-columns: 1fr 1fr !important; }
+  .hero-btns { flex-direction: column !important; align-items: stretch !important; }
+  .hide-mobile { display: none !important; }
+}
+
+@media (max-width: 480px) {
+  .grid-4col { grid-template-columns: 1fr !important; }
 }
