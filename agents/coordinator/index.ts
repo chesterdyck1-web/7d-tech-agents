@@ -6,6 +6,7 @@ import { sendToChester } from "@/lib/telegram";
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { log } from "@/lib/logger";
 import { fastRouteIntent, type Intent } from "./router";
+import { getPromptOverride } from "@/lib/prompts";
 
 const COORDINATOR_SYSTEM_PROMPT = `
 You are the Coordinator Agent for 7D Tech, an AI automation agency.
@@ -26,7 +27,7 @@ export async function handleCoordinatorMessage(text: string): Promise<void> {
   if (!fastRouteIntent(text)) {
     try {
       const res = await claude({
-        system: COORDINATOR_SYSTEM_PROMPT,
+        system: (await getPromptOverride("coordinator", "classify")) ?? COORDINATOR_SYSTEM_PROMPT,
         userMessage: text,
         maxTokens: 20,
         label: "coordinator:classify-intent",
@@ -271,8 +272,9 @@ Active clients: ${clients.filter((c) => c["status"] === "active").length}.
 Clients onboarding: ${clients.filter((c) => c["status"] === "onboarding").length}.
   `.trim();
 
+  const ANSWER_SYSTEM = `You are the 7D Tech Coordinator. Answer Chester's question using the business data below. Be brief and direct — 2-3 sentences max. Data:\n${context}`;
   const res = await claude({
-    system: `You are the 7D Tech Coordinator. Answer Chester's question using the business data below. Be brief and direct — 2-3 sentences max. Data:\n${context}`,
+    system: (await getPromptOverride("coordinator", "answer")) ?? ANSWER_SYSTEM,
     userMessage: question,
     maxTokens: 200,
     label: "coordinator:answer-question",

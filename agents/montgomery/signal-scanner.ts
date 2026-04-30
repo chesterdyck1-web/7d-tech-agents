@@ -3,6 +3,7 @@
 
 import { claude } from "@/lib/claude";
 import { readSheetAsObjects } from "@/lib/google-sheets";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface BlackSwanSignal {
   domain: string;
@@ -86,7 +87,7 @@ export async function scanForBlackSwans(): Promise<MontgomeryBriefData> {
   const context = await gatherContext();
 
   const res = await claude({
-    system: MONTGOMERY_SYSTEM_PROMPT,
+    system: (await getPromptOverride("montgomery", "scan")) ?? MONTGOMERY_SYSTEM_PROMPT,
     userMessage: `Business context for this week's scan:\n\n${context}\n\nGenerate this week's Black Swan brief. Today is ${new Date().toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`,
     maxTokens: 3000,
     label: "montgomery:scan",

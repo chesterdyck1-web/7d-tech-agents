@@ -11,6 +11,7 @@ import { sendEmail } from "@/lib/gmail";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { getPromptOverride } from "@/lib/prompts";
 import { randomUUID } from "crypto";
 
 // Called when Chester sends "new video - [drive link]" to Jason.
@@ -89,15 +90,16 @@ export async function handleClipsReady(
     const approvalId = randomUUID();
 
     try {
-      const captionRes = await claude({
-        system: `You are a social media copywriter for 7D Tech, an AI automation agency helping Canadian service businesses.
+      const CAPTION_SYSTEM = `You are a social media copywriter for 7D Tech, an AI automation agency helping Canadian service businesses.
 Write a punchy, engaging caption for a short video clip.
 Rules:
 - Under 200 characters for the main caption
 - Add 5–8 relevant hashtags on a new line
 - Sound human, not like AI
 - Focus on the business value or story angle
-- No emojis unless they add real meaning`,
+- No emojis unless they add real meaning`;
+      const captionRes = await claude({
+        system: (await getPromptOverride("content", "caption")) ?? CAPTION_SYSTEM,
         userMessage: `Write a social media caption for this video clip.\nTitle: ${clip.title ?? "Business tip clip"}\nDuration: ${clip.duration}s`,
         maxTokens: 300,
         label: "content:draft-caption",
