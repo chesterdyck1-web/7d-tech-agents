@@ -47,12 +47,14 @@ export async function runOutreach(testLimit?: number): Promise<void> {
 
       // Pick the first variation that passes QA
       let draft = null;
+      let lastQaReasons: string[] = [];
       for (const variation of variations) {
         const qaResult = await runEmailQA(variation);
         if (qaResult.passed) {
           draft = variation;
           break;
         }
+        lastQaReasons = qaResult.reasons;
       }
 
       if (!draft) {
@@ -61,7 +63,7 @@ export async function runOutreach(testLimit?: number): Promise<void> {
           action: "email_qa_failed",
           entityId: lead["business_id"] ?? "",
           status: "failure",
-          metadata: { reasons: ["all 3 variations failed QA"] },
+          metadata: { reasons: lastQaReasons, business: lead["business_name"] },
         });
         failed++;
         continue;
