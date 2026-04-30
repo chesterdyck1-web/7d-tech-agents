@@ -3,6 +3,7 @@
 // Services: Anthropic, Vapi, Make.com, Google Workspace, Stripe.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface TosChange {
   service: string;
@@ -50,8 +51,9 @@ export async function checkServiceTos(service: string, url: string): Promise<Tos
     return [];
   }
 
+  const system = (await getPromptOverride("lexington", "tos")) ?? TOS_EVAL_SYSTEM;
   const res = await claude({
-    system: TOS_EVAL_SYSTEM,
+    system,
     userMessage: `Service: ${service}\nURL: ${url}\n\nContent excerpt:\n${pageText}`,
     maxTokens: 300,
     label: "lexington:tos-check",

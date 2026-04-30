@@ -2,6 +2,7 @@
 // Current model is hardcoded in lib/claude.ts — Chichester detects drift from the latest family.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface ModelFinding {
   currentModel: string;
@@ -32,8 +33,9 @@ If a meaningfully newer model is available that the agency should consider upgra
 UPGRADE_RECOMMENDED: [short reason — cost, capability, or deprecation risk]`;
 
 export async function scanForModelUpdates(): Promise<ModelFinding | null> {
+  const system = (await getPromptOverride("chichester", "model_scanner")) ?? MODEL_EVAL_SYSTEM;
   const res = await claude({
-    system: MODEL_EVAL_SYSTEM,
+    system,
     userMessage: `Current date: ${new Date().toISOString().slice(0, 10)}. Is ${ACTIVE_MODEL} still the recommended model for a small B2B outreach automation agency that values cost efficiency?`,
     maxTokens: 100,
     label: "chichester:model-scan",

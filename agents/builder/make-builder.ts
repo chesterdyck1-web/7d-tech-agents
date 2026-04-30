@@ -3,16 +3,20 @@
 // build or clone the scenario in Make's UI with clear instructions.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 import type { BuildSpec } from "./spec-parser";
 
 export async function buildMakeSpec(spec: BuildSpec): Promise<string | null> {
   if (!spec.needsMake) return null;
 
-  const res = await claude({
-    system: `You are a Make.com automation expert writing a scenario specification for a non-technical founder.
+  const MAKE_SYSTEM = `You are a Make.com automation expert writing a scenario specification for a non-technical founder.
 The business uses Make.com to orchestrate webhooks, email triggers, and scheduled automations.
 Write a clear, step-by-step Make scenario spec using plain English and Make's module names.
-Format: numbered steps, each step = one Make module. Include the module type in parentheses.`,
+Format: numbered steps, each step = one Make module. Include the module type in parentheses.`;
+
+  const system = (await getPromptOverride("builder", "make")) ?? MAKE_SYSTEM;
+  const res = await claude({
+    system,
     userMessage: `Write a Make.com scenario spec for this agent:
 
 Agent: ${spec.agentDisplayName}

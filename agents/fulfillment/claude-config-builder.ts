@@ -2,6 +2,7 @@
 // Each client gets a prompt tuned to their vertical, tone, and business details.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface ClientConfig {
   businessName: string;
@@ -13,10 +14,13 @@ export interface ClientConfig {
 }
 
 export async function buildClientPrompt(config: ClientConfig): Promise<string> {
-  const res = await claude({
-    system: `You write Claude system prompts for service businesses.
+  const FULFILLMENT_SYSTEM = `You write Claude system prompts for service businesses.
 The prompt will be used to draft replies to contact form inquiries.
-Output ONLY the system prompt — no explanation, no markdown fencing.`,
+Output ONLY the system prompt — no explanation, no markdown fencing.`;
+
+  const system = (await getPromptOverride("fulfillment", "client_prompt")) ?? FULFILLMENT_SYSTEM;
+  const res = await claude({
+    system,
     userMessage: `Write a system prompt for this business:
 
 Business: ${config.businessName}

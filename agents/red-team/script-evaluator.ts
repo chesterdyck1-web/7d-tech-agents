@@ -3,6 +3,7 @@
 // Red-teaming the scripts monthly catches drift before it hurts conversion.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 import { OUTREACH_SYSTEM_PROMPT } from "@/agents/outreach/email-drafter";
 import { VAPI_CALL_SCRIPT } from "@/config/vapi-scripts";
 import type { Severity } from "./log-auditor";
@@ -33,8 +34,9 @@ If no issues: reply "No issues found."
 `.trim();
 
 async function evaluateEmailPrompt(): Promise<ScriptIssue[]> {
+  const system = (await getPromptOverride("red_team", "script_eval")) ?? EVAL_SYSTEM;
   const res = await claude({
-    system: EVAL_SYSTEM,
+    system,
     userMessage: `Evaluate this outreach email system prompt:
 
 ${OUTREACH_SYSTEM_PROMPT}`,
@@ -46,8 +48,9 @@ ${OUTREACH_SYSTEM_PROMPT}`,
 }
 
 async function evaluateVapiScript(): Promise<ScriptIssue[]> {
+  const system = (await getPromptOverride("red_team", "script_eval")) ?? EVAL_SYSTEM;
   const res = await claude({
-    system: EVAL_SYSTEM,
+    system,
     userMessage: `Evaluate this Vapi phone call script:
 
 ${VAPI_CALL_SCRIPT}`,

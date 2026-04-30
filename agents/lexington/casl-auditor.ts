@@ -4,6 +4,7 @@
 
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface CaslFinding {
   approvalId: string;
@@ -52,8 +53,9 @@ export async function auditCaslCompliance(): Promise<CaslFinding[]> {
 
     if (!body) continue;
 
+    const system = (await getPromptOverride("lexington", "casl")) ?? CASL_EVAL_SYSTEM;
     const res = await claude({
-      system: CASL_EVAL_SYSTEM,
+      system,
       userMessage: `Subject: ${subject}\n\n${body}`,
       maxTokens: 200,
       label: "lexington:casl-audit",

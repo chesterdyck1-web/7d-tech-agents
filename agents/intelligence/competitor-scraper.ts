@@ -3,6 +3,7 @@
 // Failures are silent — blocked sites are skipped, not fatal.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 const COMPETITORS = [
   { name: "GoHighLevel", url: "https://www.gohighlevel.com" },
@@ -38,9 +39,9 @@ export async function scrapeCompetitors(): Promise<string> {
       const html = await res.text();
       const pageText = stripHtml(html);
 
+      const COMPETITOR_SYSTEM = "You analyze competitor websites for a Canadian AI automation agency targeting service businesses. Extract facts only — no fluff.";
       const analysis = await claude({
-        system:
-          "You analyze competitor websites for a Canadian AI automation agency targeting service businesses. Extract facts only — no fluff.",
+        system: (await getPromptOverride("intelligence", "competitor")) ?? COMPETITOR_SYSTEM,
         userMessage: `Analyze this homepage. Reply with exactly 3 bullet points covering: pricing model, main product/offer, and target market or key differentiator. Skip any you cannot determine.
 
 Company: ${competitor.name}

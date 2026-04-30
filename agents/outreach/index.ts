@@ -1,7 +1,7 @@
 // Outreach Agent — processes today's leads and queues personalized emails for Chester's approval.
 // Triggered by the Coordinator or runs after prospecting completes.
 
-import { readSheetAsObjects, updateFieldByRowId } from "@/lib/google-sheets";
+import { readSheetAsObjects, updateFieldByRowId, sleep } from "@/lib/google-sheets";
 import { log } from "@/lib/logger";
 import { sendToChester } from "@/lib/telegram";
 import { draftOutreachEmail } from "./email-drafter";
@@ -12,9 +12,9 @@ import { createSequence, getDueSequences, advanceSequence } from "./sequence-eng
 import { runEmailQA } from "@/agents/qa/email-tester";
 import { getCurrentOffer } from "@/lib/offers";
 
-export async function runOutreach(): Promise<void> {
+export async function runOutreach(testLimit?: number): Promise<void> {
   // Cap daily outreach at 20 emails — prevents inbox flood and spam flags
-  const DAILY_LIMIT = 20;
+  const DAILY_LIMIT = testLimit ?? 20;
 
   const today = new Date().toISOString().slice(0, 10);
   const leads = await readSheetAsObjects("Daily Leads");
@@ -108,6 +108,9 @@ export async function runOutreach(): Promise<void> {
       });
       failed++;
     }
+
+    // Throttle between leads to stay under Google Sheets write quota
+    await sleep(1000);
   }
 
   // ── Follow-up emails for existing sequences ──
@@ -158,6 +161,9 @@ export async function runOutreach(): Promise<void> {
       });
       failed++;
     }
+
+    // Throttle between follow-up sequences for the same reason
+    await sleep(1000);
   }
 
   await log({

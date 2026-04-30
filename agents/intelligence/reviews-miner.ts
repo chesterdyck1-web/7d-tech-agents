@@ -4,6 +4,7 @@
 
 import { env } from "@/lib/env";
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 import { VERTICALS } from "@/config/verticals";
 
 const PLACES_BASE = "https://places.googleapis.com/v1";
@@ -79,9 +80,9 @@ export async function mineReviews(): Promise<string> {
     return `No 1–2 star reviews found for ${vertical.name} this week.`;
   }
 
+  const REVIEWS_SYSTEM = "You analyze negative Google Reviews to find pain points for an AI automation agency's outreach team. Be specific and concise.";
   const analysis = await claude({
-    system:
-      "You analyze negative Google Reviews to find pain points for an AI automation agency's outreach team. Be specific and concise.",
+    system: (await getPromptOverride("intelligence", "reviews")) ?? REVIEWS_SYSTEM,
     userMessage: `These are 1–2 star reviews from ${vertical.name} businesses in Canada.
 Identify the top 3 recurring complaints related to: slow response, missed leads, poor follow-up, or communication failures.
 Write each as a specific pain point statement (e.g. "prospects fill out the contact form and never hear back for days").

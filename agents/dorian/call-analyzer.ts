@@ -4,6 +4,7 @@
 
 import { listCalls, type VapiCall } from "@/lib/vapi";
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface CallPattern {
   totalCalls: number;
@@ -97,8 +98,9 @@ export async function analyzeRecentCalls(): Promise<CallPattern> {
     };
   }
 
+  const system = (await getPromptOverride("dorian", "call_analyzer")) ?? CALL_ANALYSIS_SYSTEM;
   const res = await claude({
-    system: CALL_ANALYSIS_SYSTEM,
+    system,
     userMessage: transcriptBlock,
     maxTokens: 400,
     label: "dorian:call-analysis",

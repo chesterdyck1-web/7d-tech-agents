@@ -4,6 +4,7 @@
 
 import { claude } from "@/lib/claude";
 import type { BuildSpec } from "./spec-parser";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface ScaffoldedFile {
   path: string;
@@ -32,8 +33,7 @@ export async function scaffoldAgent(spec: BuildSpec): Promise<ScaffoldedFile[]> 
     .map((f) => `- ${f.name}(): ${f.description}`)
     .join("\n");
 
-  const res = await claude({
-    system: `You are a TypeScript developer generating a scaffold for a new agent in a Next.js/TypeScript codebase.
+  const SCAFFOLDER_SYSTEM = `You are a TypeScript developer generating a scaffold for a new agent in a Next.js/TypeScript codebase.
 Follow these patterns exactly:
 - Import only from @/lib/* and @/config/*
 - Use async/await throughout
@@ -45,7 +45,11 @@ Follow these patterns exactly:
 - Do NOT add error handling beyond a try/catch that calls log() with status: "failure"
 
 Example of an existing agent for reference:
-${EXAMPLE_AGENT}`,
+${EXAMPLE_AGENT}`;
+
+  const system = (await getPromptOverride("builder", "scaffolder")) ?? SCAFFOLDER_SYSTEM;
+  const res = await claude({
+    system,
     userMessage: `Generate the TypeScript content for agents/${spec.agentName}/index.ts.
 
 Agent: ${spec.agentDisplayName}

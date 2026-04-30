@@ -3,6 +3,7 @@
 
 import { readAllMetrics, type MetricRow } from "@/lib/metrics";
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 function buildTrendSummary(metrics: MetricRow[]): string {
   if (metrics.length === 0) return "No performance data recorded yet.";
@@ -49,9 +50,9 @@ export async function analyzePerformance(): Promise<string> {
 
   const trendSummary = buildTrendSummary(metrics);
 
+  const PERF_SYSTEM = "You are a business performance analyst for Chester, a non-technical founder running an AI automation agency. Write in plain English — no jargon.";
   const analysis = await claude({
-    system:
-      "You are a business performance analyst for Chester, a non-technical founder running an AI automation agency. Write in plain English — no jargon.",
+    system: (await getPromptOverride("intelligence", "performance")) ?? PERF_SYSTEM,
     userMessage: `Here are this week's agent performance metrics. Write a 3–5 sentence summary covering: what is working well, what needs attention, and one actionable recommendation. Flag anything critical first.
 
 Metrics:

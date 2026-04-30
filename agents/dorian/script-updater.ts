@@ -3,6 +3,7 @@
 // Script updates are NEVER applied automatically.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 import { appendToSheet } from "@/lib/google-sheets";
 import { type CallPattern } from "./call-analyzer";
 
@@ -50,8 +51,9 @@ ${pattern.commonDropOffPoints.map((d, i) => `${i + 1}. ${d}`).join("\n") || "No 
 Average call length: ${Math.round(pattern.avgDurationSeconds / 60 * 10) / 10} minutes
 `.trim();
 
+  const system = (await getPromptOverride("dorian", "script")) ?? SCRIPT_SYSTEM;
   const res = await claude({
-    system: SCRIPT_SYSTEM,
+    system,
     userMessage: context,
     maxTokens: 300,
     label: "dorian:script-proposal",

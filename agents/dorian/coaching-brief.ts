@@ -2,6 +2,7 @@
 // Gives Chester actionable tips to improve call outcomes and close rate.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 import { type CallPattern } from "./call-analyzer";
 
 const COACHING_SYSTEM = `You are a sales coach writing a brief weekly coaching note for a solo business owner.
@@ -28,8 +29,9 @@ Positive signals (prospects who engaged):
 ${pattern.positiveSignals.map((s) => `- ${s}`).join("\n") || "- None detected"}
 `.trim();
 
+  const system = (await getPromptOverride("dorian", "coaching")) ?? COACHING_SYSTEM;
   const res = await claude({
-    system: COACHING_SYSTEM,
+    system,
     userMessage: context,
     maxTokens: 250,
     label: "dorian:coaching-brief",

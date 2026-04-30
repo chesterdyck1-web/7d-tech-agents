@@ -2,6 +2,7 @@
 // This is the first step — everything else flows from the spec.
 
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export interface BuildSpec {
   agentName: string;           // kebab-case, e.g. "welcome-mailer"
@@ -39,8 +40,9 @@ Reply with ONLY valid JSON matching this exact shape — no markdown, no explana
 `.trim();
 
 export async function parseSpec(rawRequest: string): Promise<BuildSpec> {
+  const system = (await getPromptOverride("builder", "spec")) ?? PARSE_SYSTEM;
   const res = await claude({
-    system: PARSE_SYSTEM,
+    system,
     userMessage: `Parse this build request:
 
 "${rawRequest}"`,

@@ -3,6 +3,7 @@
 
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { claude } from "@/lib/claude";
+import { getPromptOverride } from "@/lib/prompts";
 
 export type Severity = "low" | "medium" | "high" | "critical";
 
@@ -68,9 +69,9 @@ export async function auditActionLog(): Promise<{ findings: AuditFinding[]; summ
 
   // Claude looks for non-obvious patterns beyond raw failure rates
   const logText = statLines.slice(0, 30).join("\n");
+  const LOG_AUDIT_SYSTEM = "You are a security auditor reviewing an AI agent system's operational log. Identify anomalies beyond simple failure rates — e.g. suspicious timing patterns, repeated identical errors, unexpected action sequences, or signs of data corruption. Be brief and specific.";
   const patternRes = await claude({
-    system:
-      "You are a security auditor reviewing an AI agent system's operational log. Identify anomalies beyond simple failure rates — e.g. suspicious timing patterns, repeated identical errors, unexpected action sequences, or signs of data corruption. Be brief and specific.",
+    system: (await getPromptOverride("red_team", "log_audit")) ?? LOG_AUDIT_SYSTEM,
     userMessage: `30-day action log summary (agent:action — success/failure counts):
 ${logText}
 
