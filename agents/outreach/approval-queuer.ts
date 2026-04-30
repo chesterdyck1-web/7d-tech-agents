@@ -1,10 +1,19 @@
-// Writes a drafted email to the Approval Queue and emails Chester the approval link.
+// Writes a drafted email to the Approval Queue and pings Chester via Telegram.
+// Chester approves from the /dashboard — no email link is sent to his inbox.
+// If autonomous_outreach setting is "true", skips the queue and sends directly.
 
-import { appendToSheet } from "@/lib/google-sheets";
+import { appendToSheet, ensureSheetTab } from "@/lib/google-sheets";
 import { sendEmail } from "@/lib/gmail";
-import { generateApprovalToken, buildApprovalUrl } from "@/lib/approval-token";
-import { env } from "@/lib/env";
+import { sendToChester } from "@/lib/telegram";
+import { getSetting } from "@/lib/settings";
+import { log } from "@/lib/logger";
 import { randomUUID } from "crypto";
+
+const APPROVAL_QUEUE_HEADERS = [
+  "approval_id", "type", "sender", "subject", "body",
+  "to_email", "to_name", "status", "qa_status",
+  "created_at", "decided_at", "used", "business_id",
+];
 
 export interface QueueApprovalInput {
   businessId: string;
@@ -16,15 +25,54 @@ export interface QueueApprovalInput {
 }
 
 export async function queueForApproval(input: QueueApprovalInput): Promise<string> {
+  await ensureSheetTab("Approval Queue", APPROVAL_QUEUE_HEADERS);
+  const isAutonomous = (await getSetting("autonomous_outreach")) === "true";
+
+  if (isAutonomous) {
+    await sendEmail({
+      to: input.toEmail,
+      from: "chester@7dtech.ca",
+      subject: input.subject,
+      bodyHtml: input.body.replace(/\n/g, "<br>"),
+    });
+
+    const approvalId = randomUUID();
+    const now = new Date().toISOString();
+
+    await appendToSheet("Approval Queue", [
+      approvalId,
+      "outreach_email",
+      "chester@7dtech.ca",
+      input.subject,
+      input.body,
+      input.toEmail,
+      input.toName,
+      "auto_sent",
+      input.qaStatus,
+      now,
+      now,
+      "TRUE",
+      input.businessId,
+    ]);
+
+    await log({
+      agent: "outreach",
+      action: "autonomous_send",
+      entityId: approvalId,
+      status: "success",
+      metadata: { toEmail: input.toEmail, toName: input.toName } as unknown as Record<string, unknown>,
+    });
+
+    return approvalId;
+  }
+
   const approvalId = randomUUID();
-  const token = await generateApprovalToken(approvalId, "chester_outreach");
-  const approvalUrl = buildApprovalUrl(token);
   const now = new Date().toISOString();
 
   await appendToSheet("Approval Queue", [
     approvalId,
     "outreach_email",
-    "chesterdyck1@gmail.com",
+    "chester@7dtech.ca",
     input.subject,
     input.body,
     input.toEmail,
@@ -37,26 +85,10 @@ export async function queueForApproval(input: QueueApprovalInput): Promise<strin
     input.businessId,
   ]);
 
-  await sendEmail({
-    to: "chesterdyck1@gmail.com",
-    subject: `Outreach ready - ${input.toName} at ${input.subject.slice(0, 40)}`,
-    bodyHtml: `
-      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:2rem;color:#1a1a1a;">
-        <p style="font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:1.5rem;">7D Tech - Outreach Approval</p>
-
-        <p style="margin-bottom:0.5rem;"><strong>To:</strong> ${input.toName} &lt;${input.toEmail}&gt;</p>
-        <p style="margin-bottom:0.5rem;"><strong>Subject:</strong> ${input.subject}</p>
-
-        <div style="background:#f5f5f5;padding:1rem;border-radius:4px;margin:1rem 0 2rem;">
-          ${input.body.replace(/\n/g, "<br>")}
-        </div>
-
-        <a href="${approvalUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;padding:0.85rem 2rem;border-radius:5px;text-decoration:none;font-size:0.95rem;">Approve - Send Email</a>
-
-        <p style="margin-top:1.5rem;font-size:0.8rem;color:#aaa;">Single-use link. Expires in 24 hours.</p>
-      </div>
-    `,
-  });
+  // Telegram ping — Chester approves from the dashboard, not his inbox
+  await sendToChester(
+    `*New outreach draft ready*\nTo: ${input.toName} (${input.toEmail})\nSubject: ${input.subject}\n\nApprove at 7dtech.ca/dashboard`
+  );
 
   return approvalId;
 }

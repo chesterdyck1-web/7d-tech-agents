@@ -1,4 +1,4 @@
-// Gmail API helpers — send and read emails on behalf of chesterdyck1@gmail.com.
+// Gmail API helpers — send and read emails. Outgoing mail uses chester@7dtech.ca.
 
 import { google } from "googleapis";
 import { getAuthClient } from "@/lib/google-auth";
@@ -12,6 +12,7 @@ export interface EmailPayload {
   subject: string;
   bodyHtml: string;
   replyTo?: string;
+  from?: string;
 }
 
 // Send an email. Returns the sent message ID.
@@ -28,6 +29,7 @@ export async function sendEmail(payload: EmailPayload): Promise<string> {
 function buildRawEmail(payload: EmailPayload): string {
   const lines = [
     `To: ${payload.to}`,
+    ...(payload.from ? [`From: ${payload.from}`] : []),
     `Subject: ${payload.subject}`,
     `Content-Type: text/html; charset=utf-8`,
     ...(payload.replyTo ? [`Reply-To: ${payload.replyTo}`] : []),

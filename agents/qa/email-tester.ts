@@ -9,9 +9,11 @@ export interface QAResult {
   reasons: string[];
 }
 
-// Words/phrases that trigger spam filters or violate the no-AI rule
+// Words/phrases that trigger spam filters or violate the no-AI rule.
+// "free" is intentionally excluded — Chester's beta offer is genuinely free
+// and "try it for free" is accurate, plain English, not a spam tactic.
 const SPAM_TRIGGERS = [
-  "free", "guaranteed", "no obligation", "act now", "limited time",
+  "guaranteed", "no obligation", "act now", "limited time",
   "click here", "unsubscribe",
 ];
 

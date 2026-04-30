@@ -1,7 +1,7 @@
 // Performance Metrics sheet read/write helpers.
 // Used by the weekly performance cron, Coordinator daily brief, and Intelligence Agent.
 
-import { readSheetAsObjects, appendToSheet } from "@/lib/google-sheets";
+import { readSheetAsObjects, appendToSheet, ensureSheetTab } from "@/lib/google-sheets";
 import { BENCHMARKS } from "@/config/benchmarks";
 
 // Mirrors the Performance Metrics sheet columns exactly.
@@ -30,6 +30,11 @@ export interface MetricInput {
 // Write one week's reading for a metric.
 // Automatically calculates consecutive_weeks_below and the flagged flag.
 export async function writeMetric(input: MetricInput): Promise<void> {
+  await ensureSheetTab("Performance Metrics", [
+    "week_start", "agent", "metric_key", "metric_name", "metric_value",
+    "unit", "target", "alert_threshold", "consecutive_weeks_below", "flagged", "notes",
+  ]);
+
   const benchmark = BENCHMARKS[input.metricKey];
   if (!benchmark) throw new Error(`Unknown metric key: "${input.metricKey}"`);
 

@@ -140,7 +140,7 @@ Rules:
       ]);
 
       await sendEmail({
-        to: "chesterdyck1@gmail.com",
+        to: "chester@7dtech.ca",
         subject: `New clip ready for approval — ${clip.title ?? "Video clip"}`,
         bodyHtml: `
           <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:2rem;color:#1a1a1a;">

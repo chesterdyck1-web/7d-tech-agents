@@ -48,6 +48,20 @@ export async function GET(req: NextRequest) {
   const pendingContent = content.filter((r) => r["status"] === "pending_approval").length;
   const postedContent = content.filter((r) => r["status"] === "posted").length;
 
+  // Pending approvals list for the approval panel
+  const pendingApprovalsList = approvals
+    .filter((r) => r["status"] === "pending")
+    .map((r) => ({
+      approvalId: r["approval_id"] ?? "",
+      type: r["type"] ?? "",
+      toName: r["to_name"] ?? "",
+      toEmail: r["to_email"] ?? "",
+      subject: r["subject"] ?? "",
+      body: r["body"] ?? "",
+      qaStatus: r["qa_status"] ?? "",
+      createdAt: r["created_at"] ?? "",
+    }));
+
   // Action Log — last 10 entries for the activity feed
   const recentActions = actionLog
     .slice(-10)
@@ -67,5 +81,6 @@ export async function GET(req: NextRequest) {
     agentHealth: { recentFailures, recentSuccesses },
     content: { pending: pendingContent, posted: postedContent },
     recentActions,
+    pendingApprovalsList,
   });
 }

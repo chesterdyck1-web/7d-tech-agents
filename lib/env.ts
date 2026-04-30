@@ -22,13 +22,13 @@ const envSchema = z.object({
   // Make.com
   MAKE_API_KEY: z.string().min(1),
   MAKE_TEAM_ID: z.string().min(1),
-  MAKE_ORGANIZATION_ID: z.string().min(1),
+  MAKE_ORGANIZATION_ID: z.string().default(""),  // only needed for scenario cloning
   MAKE_WEBHOOK_SECRET: z.string().min(1),
   MAKE_TEMPLATE_SCENARIO_ID: z.string().default("0"),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().min(1),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1),
+  STRIPE_WEBHOOK_SECRET: z.string().default(""),  // set in Vercel when webhook is live
 
   // OpusClip (optional — content clipping won't work until set)
   OPUS_CLIP_API_KEY: z.string().default(""),

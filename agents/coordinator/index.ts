@@ -14,7 +14,7 @@ Chester Dyck is the founder. He messages you via Telegram to run his business.
 Your job: classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
 build_spec | run_prospecting | content_status | view_performance | view_intelligence | view_red_team |
-view_financial | view_coaching | view_tech_brief | get_summary | ask_question
+view_financial | view_coaching | view_tech_brief | view_black_swan | get_summary | ask_question
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -169,6 +169,13 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       break;
     }
 
+    case "view_black_swan": {
+      const { getLatestMontgomeryBrief } = await import("@/agents/montgomery/index");
+      const brief = await getLatestMontgomeryBrief();
+      await sendToChester(brief);
+      break;
+    }
+
     case "run_prospecting": {
       await sendToChester("Starting prospecting run now — I will message you when it is done.");
       const { runProspecting } = await import("@/agents/prospecting/index");
@@ -243,16 +250,25 @@ async function handleViewPerformance(): Promise<void> {
 }
 
 async function handleAskQuestion(question: string): Promise<void> {
-  const [leads, clients, approvals] = await Promise.all([
-    readSheetAsObjects("Master Leads"),
+  const today = new Date().toISOString().slice(0, 10);
+  const [dailyLeads, clients, approvals] = await Promise.all([
+    readSheetAsObjects("Daily Leads"),
     readSheetAsObjects("Clients"),
     readSheetAsObjects("Approval Queue"),
   ]);
 
+  const todayLeads = dailyLeads.filter((r) => r["date"] === today);
+  const pendingApprovals = approvals.filter((a) => a["status"] === "pending");
+  const sentToday = approvals.filter(
+    (a) => a["sent_at"]?.slice(0, 10) === today && a["status"] !== "pending"
+  );
+
   const context = `
-Master Leads: ${leads.length} total.
+Today's leads: ${todayLeads.length} (from Daily Leads sheet, date ${today}).
+Outreach emails queued for approval today: ${pendingApprovals.length}.
+Outreach emails sent today: ${sentToday.length}.
 Active clients: ${clients.filter((c) => c["status"] === "active").length}.
-Pending approvals: ${approvals.filter((a) => a["status"] === "pending").length}.
+Clients onboarding: ${clients.filter((c) => c["status"] === "onboarding").length}.
   `.trim();
 
   const res = await claude({

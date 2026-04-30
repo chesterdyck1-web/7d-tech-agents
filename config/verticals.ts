@@ -52,4 +52,40 @@ export const VERTICALS: Vertical[] = [
     outcomeLanguage:
       "fill your appointment book faster by responding to every new patient inquiry in seconds",
   },
+  {
+    id: "chiropractor",
+    name: "Chiropractor",
+    searchTerms: ["chiropractor", "chiropractic clinic", "chiropractic care"],
+    painPoints: [
+      "New patients in pain are searching multiple clinics at once — the first to respond gets the booking",
+      "Front desk is tied up with existing patients and misses new inquiry calls and form submissions",
+      "After-hours form submissions sit until morning, by which point the patient has booked somewhere else",
+    ],
+    outcomeLanguage:
+      "respond to every new patient inquiry in seconds and fill your schedule faster",
+  },
+  {
+    id: "personal_trainer",
+    name: "Personal Trainer",
+    searchTerms: ["personal trainer", "personal training", "fitness coach"],
+    painPoints: [
+      "People inquiring about training are motivated in the moment — a slow reply kills that momentum",
+      "Trial session requests go unanswered over the weekend and the prospect moves on by Monday",
+      "Competing trainers who reply first consistently win the client regardless of price",
+    ],
+    outcomeLanguage:
+      "reply to every trial session request instantly and convert more inquiries into paying clients",
+  },
+  {
+    id: "landscaper",
+    name: "Landscaper",
+    searchTerms: ["landscaper", "landscaping company", "lawn care"],
+    painPoints: [
+      "Homeowners request quotes from three companies at once — whoever responds first usually gets the job",
+      "Quote requests pile up during peak season when crews are out and no one is watching the inbox",
+      "A delayed response on a spring or fall quote often means losing the job for the entire season",
+    ],
+    outcomeLanguage:
+      "respond to every quote request the moment it comes in and win more jobs during peak season",
+  },
 ];

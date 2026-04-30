@@ -3,7 +3,7 @@
 // Tracks revenue, API costs, fund balances, close rate, and profitability ratio.
 // Target: MRR must be ≥ 2× (monthly CAC + monthly COGS).
 
-import { appendToSheet, readSheetAsObjects } from "@/lib/google-sheets";
+import { appendToSheet, readSheetAsObjects, ensureSheetTab } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
 import { captureRevenue } from "./revenue-tracker";
@@ -36,6 +36,13 @@ async function getLastFundBalances(): Promise<{
 }
 
 export async function runDailyFinancials(): Promise<void> {
+  await ensureSheetTab("Financial Metrics", [
+    "date", "mrr_cad", "new_clients", "total_active", "anthropic_cost_cad",
+    "vapi_cost_cad", "make_cost_cad", "total_cogs_cad", "cac_cad",
+    "profitability_ratio", "operating_fund_cad", "acquisition_fund_cad",
+    "real_estate_fund_cad", "close_rate_weekly", "notes",
+  ]);
+
   const today = new Date().toISOString().slice(0, 10);
   const isMonday = new Date().getDay() === 1;
 
@@ -113,7 +120,7 @@ export async function runDailyFinancials(): Promise<void> {
 
 // Returns a formatted one-paragraph financial summary for the daily brief.
 export async function getFinancialSummary(): Promise<string> {
-  const rows = await readSheetAsObjects("Financial Metrics");
+  const rows = await readSheetAsObjects("Financial Metrics").catch(() => []);
   if (rows.length === 0) return "No financial data yet.";
 
   const latest = rows[rows.length - 1]!;

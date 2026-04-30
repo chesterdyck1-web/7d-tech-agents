@@ -1,4 +1,5 @@
 import FaqAccordion from "./components/FaqAccordion";
+import { ContactForm } from "./components/ContactForm";
 
 // ─── Colour tokens ───────────────────────────────────────────────────────────
 const GOLD = "#c9963c";
@@ -186,7 +187,7 @@ export default function Home() {
           </p>
           <div className="hero-btns" style={{ display: "flex", gap: "1rem", flexWrap: "wrap" as const }}>
             <BtnFilled href="#book-demo">Book a Demo</BtnFilled>
-            <BtnOutline href="#apply">Apply for Beta</BtnOutline>
+            <BtnOutline href="#book-demo">Apply for Beta</BtnOutline>
           </div>
         </div>
 
@@ -481,7 +482,7 @@ export default function Home() {
             30&nbsp;seconds of a form submission — you do not pay. We stand fully behind
             every prescription we write.
           </p>
-          <BtnFilled href="#apply">Apply for Beta</BtnFilled>
+          <BtnFilled href="#book-demo">Apply for Beta</BtnFilled>
         </div>
       </section>
 
@@ -563,28 +564,46 @@ export default function Home() {
 
       <div style={{ padding: "0 3rem" }}><Divider /></div>
 
-      {/* ── 12. FINAL CTA ── */}
+      {/* ── 12. FINAL CTA + CONTACT FORM ── */}
       <section id="book-demo" style={{
         position: "relative" as const,
         padding: "8rem 3rem",
-        textAlign: "center" as const,
-        backgroundImage: `linear-gradient(rgba(26,20,16,0.82), rgba(26,20,16,0.92)), url('/hero_image.jpg')`,
+        backgroundImage: `linear-gradient(rgba(26,20,16,0.88), rgba(26,20,16,0.95)), url('/hero_image.jpg')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
       }}>
-        <div style={{ maxWidth: "660px", margin: "0 auto" }}>
-          <div style={{ fontSize: "1.5rem", color: GOLD, marginBottom: "1.5rem", letterSpacing: "0.2em", opacity: 0.7 }}>⚜</div>
-          <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 3.2rem)", color: CREAM, fontFamily: "var(--font-playfair), Georgia, serif", marginBottom: "1.5rem", lineHeight: 1.15 }}>
-            Every lead deserves an immediate first response.
-          </h2>
-          <p style={{ color: MUTED, fontSize: "1.05rem", lineHeight: 1.8, marginBottom: "3rem" }}>
-            Book a fifteen-minute demonstration. We will show you exactly how First Response
-            Rx works, configured for your business, live — before you commit to anything.
-          </p>
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" as const }}>
-            <BtnFilled href="mailto:chester@7dtech.ca?subject=Book a Demo">Book a Demo</BtnFilled>
-            <BtnOutline href="#apply">Apply for Beta</BtnOutline>
+        <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+          <div style={{ textAlign: "center" as const, marginBottom: "3.5rem" }}>
+            <div style={{ fontSize: "1.5rem", color: GOLD, marginBottom: "1.5rem", letterSpacing: "0.2em", opacity: 0.7 }}>⚜</div>
+            <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 3.2rem)", color: CREAM, fontFamily: "var(--font-playfair), Georgia, serif", marginBottom: "1.5rem", lineHeight: 1.15 }}>
+              Every lead deserves an immediate first response.
+            </h2>
+            <p style={{ color: MUTED, fontSize: "1.05rem", lineHeight: 1.8 }}>
+              Fill out the form below. A personalized reply will be drafted and in your inbox
+              within 30 seconds of Chester reviewing it — so you can see exactly how the
+              product works before you commit to anything.
+            </p>
+          </div>
+
+          {/* Contact form — posts to /api/webhooks/demo */}
+          <div style={{
+            backgroundColor: "rgba(45,31,20,0.6)",
+            border: `1px solid rgba(201,150,60,0.25)`,
+            padding: "3rem",
+          }}>
+            <p style={{
+              fontSize: "0.65rem",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase" as const,
+              color: GOLD,
+              marginBottom: "2rem",
+              borderBottom: `1px solid rgba(201,150,60,0.2)`,
+              paddingBottom: "1rem",
+            }}>
+              Book a Demo — Response within 30 seconds
+            </p>
+            <ContactForm />
           </div>
         </div>
       </section>
@@ -628,7 +647,7 @@ export default function Home() {
                 </a>
               </div>
               <div>
-                <a href="#apply" className="nav-link-item" style={{ fontSize: "0.9rem", color: MUTED }}>
+                <a href="#book-demo" className="nav-link-item" style={{ fontSize: "0.9rem", color: MUTED }}>
                   Apply for Beta
                 </a>
               </div>

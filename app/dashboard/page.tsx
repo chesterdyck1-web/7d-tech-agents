@@ -1,6 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ApprovalsPanel from "./ApprovalsPanel";
+
+interface PendingApproval {
+  approvalId: string;
+  type: string;
+  toName: string;
+  toEmail: string;
+  subject: string;
+  body: string;
+  qaStatus: string;
+  createdAt: string;
+}
 
 interface DashboardData {
   generatedAt: string;
@@ -10,6 +22,18 @@ interface DashboardData {
   agentHealth: { recentFailures: number; recentSuccesses: number };
   content: { pending: number; posted: number };
   recentActions: Array<{ timestamp: string; agent: string; action: string; status: string }>;
+  pendingApprovalsList: PendingApproval[];
+}
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return mobile;
 }
 
 export default function DashboardPage() {
@@ -19,6 +43,7 @@ export default function DashboardPage() {
   const [secret, setSecret] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isMobile = useIsMobile();
 
   const fetchData = useCallback(async (s: string) => {
     setLoading(true);
@@ -96,7 +121,7 @@ export default function DashboardPage() {
   const healthOk = data.agentHealth.recentFailures === 0;
 
   return (
-    <div style={s.root}>
+    <div style={{ ...s.root, padding: isMobile ? "1.25rem 1rem" : "2.5rem 2rem" }}>
       {/* Header */}
       <header style={s.header}>
         <span style={s.headerCrest}>⚜</span>
@@ -108,7 +133,7 @@ export default function DashboardPage() {
       {/* Top metrics — financial row */}
       <div style={s.section}>
         <div style={s.sectionLabel}>Financials</div>
-        <div style={s.row4}>
+        <div style={{ ...s.row4, gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)" }}>
           <Tile label="Monthly Revenue" value={`$${data.financial.mrr}`} unit="CAD" />
           <Tile label="Profitability" value={`${ratio}×`} unit="target 2×" accent={ratioColor} />
           <Tile label="Operating Fund" value={`$${data.financial.operatingFund}`} unit="CAD" />
@@ -121,12 +146,24 @@ export default function DashboardPage() {
       {/* Second row — operations */}
       <div style={s.section}>
         <div style={s.sectionLabel}>Operations</div>
-        <div style={s.row4}>
+        <div style={{ ...s.row4, gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)" }}>
           <Tile label="Active Clients" value={String(data.clients.active)} unit={data.clients.onboarding > 0 ? `+${data.clients.onboarding} onboarding` : "all active"} />
           <Tile label="Pending Approvals" value={String(data.pipeline.pendingApprovals)} unit="awaiting your tap" accent={data.pipeline.pendingApprovals > 0 ? "#c9a227" : undefined} />
           <Tile label="Today's Leads" value={String(data.pipeline.todayLeads)} unit="new today" />
           <Tile label="Agent Health" value={healthOk ? "Clear" : `${data.agentHealth.recentFailures} err`} unit="last 24 h" accent={healthOk ? "#5db87a" : "#d95f5f"} />
         </div>
+      </div>
+
+      <div style={s.rule} />
+
+      {/* Outreach approvals */}
+      <div style={s.section}>
+        <div style={s.sectionLabel}>Outreach Approvals</div>
+        <ApprovalsPanel
+          secret={secret}
+          pendingApprovals={data.pendingApprovalsList ?? []}
+          onRefresh={() => void fetchData(secret)}
+        />
       </div>
 
       <div style={s.rule} />
@@ -139,10 +176,15 @@ export default function DashboardPage() {
             <div style={s.feedEmpty}>No recent agent actions.</div>
           )}
           {data.recentActions.map((a, i) => (
-            <div key={i} style={s.feedRow}>
+            <div key={i} style={{
+              ...s.feedRow,
+              gridTemplateColumns: isMobile ? "1.5rem 1fr 3.5rem" : "1.5rem 7rem 1fr 4rem",
+            }}>
               <span style={{ ...s.dot, background: a.status === "failure" ? "#d95f5f" : "#5db87a" }} />
-              <span style={s.feedAgent}>{a.agent}</span>
-              <span style={s.feedAction}>{a.action.replace(/_/g, " ")}</span>
+              {!isMobile && <span style={s.feedAgent}>{a.agent}</span>}
+              <span style={isMobile ? { ...s.feedAction, fontSize: "0.75rem" } : s.feedAction}>
+                {isMobile ? `${a.agent}: ` : ""}{a.action.replace(/_/g, " ")}
+              </span>
               <span style={s.feedTime}>
                 {a.timestamp
                   ? new Date(a.timestamp).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" })

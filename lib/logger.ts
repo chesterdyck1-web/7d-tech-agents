@@ -20,7 +20,8 @@ type Agent =
   | "franklin"
   | "lexington"
   | "chichester"
-  | "dorian";
+  | "dorian"
+  | "montgomery";
 
 type LogStatus = "success" | "failure" | "pending";
 

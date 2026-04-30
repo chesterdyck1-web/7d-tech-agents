@@ -107,6 +107,25 @@ export async function updateFieldByRowId(
   throw new Error(`Row with id "${idValue}" not found in sheet "${sheetName}"`);
 }
 
+// Create a new sheet tab if it does not already exist.
+export async function ensureSheetTab(
+  title: string,
+  headers?: string[]
+): Promise<void> {
+  const meta = await sheets().spreadsheets.get({ spreadsheetId: env.GOOGLE_SHEETS_ID });
+  const exists = (meta.data.sheets ?? []).some((s) => s.properties?.title === title);
+  if (exists) return;
+
+  await sheets().spreadsheets.batchUpdate({
+    spreadsheetId: env.GOOGLE_SHEETS_ID,
+    requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+  });
+
+  if (headers && headers.length > 0) {
+    await appendToSheet(title, headers);
+  }
+}
+
 function columnLetter(index: number): string {
   let letter = "";
   let n = index + 1;

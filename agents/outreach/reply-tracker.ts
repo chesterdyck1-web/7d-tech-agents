@@ -1,11 +1,12 @@
 // Polls Gmail for replies from prospects we have emailed.
-// When a reply is detected, alerts Chester immediately via Telegram.
+// When a reply is detected, alerts Chester and stops the email sequence for that lead.
 // Tracks processed replies in the Action Log to avoid duplicate alerts.
 
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { searchEmails } from "@/lib/gmail";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
+import { markReplied } from "./sequence-engine";
 
 function isInLast30Days(dateStr: string): boolean {
   if (!dateStr) return false;
@@ -74,6 +75,12 @@ export async function trackReplies(): Promise<void> {
       await sendToChester(
         `*PROSPECT REPLIED — ${toName}*\n${toEmail}\n\nSubject: ${reply.subject}\n"${reply.snippet.slice(0, 150)}..."\n\nCheck your Gmail inbox.`
       );
+
+      // Stop the email sequence — no more follow-ups needed
+      const businessId = sent["business_id"] ?? "";
+      if (businessId) {
+        await markReplied(businessId).catch(() => null);
+      }
 
       newReplies++;
 

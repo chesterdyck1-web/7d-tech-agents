@@ -34,7 +34,7 @@ const authUrl =
   `&prompt=consent`;
 
 console.log("\n── Google OAuth Token Generator ──────────────────────────────");
-console.log("Open this URL in your browser and sign in with chesterdyck1@gmail.com:\n");
+console.log("Open this URL in your browser and sign in with chester@7dtech.ca:\n");
 console.log(authUrl);
 console.log("\nWaiting for Google to redirect back...\n");
 

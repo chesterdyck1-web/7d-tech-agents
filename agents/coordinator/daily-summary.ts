@@ -5,6 +5,7 @@
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
 import { getFinancialSummary } from "@/agents/franklin/index";
+import { getTopMontgomerySignals } from "@/agents/montgomery/index";
 
 function getMondayISO(): string {
   const d = new Date();
@@ -22,7 +23,7 @@ function getCurrentMonthISO(): string {
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary] =
+  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals] =
     await Promise.all([
       readSheetAsObjects("Approval Queue"),
       readSheetAsObjects("Daily Leads"),
@@ -32,6 +33,7 @@ export async function sendDailySummary(): Promise<void> {
       readSheetAsObjects("Intelligence Briefs").catch(() => []),
       readSheetAsObjects("Red Team Reports").catch(() => []),
       getFinancialSummary().catch(() => null),
+      isToday(1) ? getTopMontgomerySignals().catch(() => null) : Promise.resolve(null),
     ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -80,7 +82,7 @@ export async function sendDailySummary(): Promise<void> {
   // Pipeline
   brief += `*PIPELINE*\n`;
   brief += `  New leads today: ${todayLeads.length}\n`;
-  brief += `  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← emails sent" : ""}\n\n`;
+  brief += `  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← approve at /dashboard" : ""}\n\n`;
 
   // Clients
   brief += `*CLIENTS*\n`;
@@ -93,7 +95,7 @@ export async function sendDailySummary(): Promise<void> {
 
   // Content
   brief += `*CONTENT*\n`;
-  brief += `  Posted: ${postedContent.length}  |  Pending your approval: ${pendingContent.length}${pendingContent.length > 0 ? " ← emails sent" : ""}\n\n`;
+  brief += `  Posted: ${postedContent.length}  |  Pending your approval: ${pendingContent.length}${pendingContent.length > 0 ? " ← approve at /dashboard" : ""}\n\n`;
 
   // Performance flags
   if (flaggedMetrics.length > 0) {
@@ -127,6 +129,13 @@ export async function sendDailySummary(): Promise<void> {
     brief += `  ${redTeamFlag["severity"]!.toUpperCase()} severity finding this month — reply "red team report" for details\n\n`;
   }
 
+  // Montgomery Black Swan signals — Mondays only, high/existential only
+  if (montgomerySignals) {
+    brief += `*MONTGOMERY — BLACK SWAN SIGNALS*\n`;
+    brief += montgomerySignals + "\n";
+    brief += `  Reply "black swan brief" for the full report\n\n`;
+  }
+
   // Financial summary (from Franklin)
   if (financialSummary) {
     brief += `*FINANCIALS*\n`;
@@ -135,8 +144,8 @@ export async function sendDailySummary(): Promise<void> {
 
   // Approvals reminder at the bottom
   if (pendingApprovals.length > 0) {
-    brief += `*APPROVALS NEEDED* ← emails already sent to you\n`;
-    brief += `  ${pendingApprovals.length} item${pendingApprovals.length !== 1 ? "s" : ""} awaiting your tap\n`;
+    brief += `*APPROVALS NEEDED* ← open /dashboard to approve\n`;
+    brief += `  ${pendingApprovals.length} item${pendingApprovals.length !== 1 ? "s" : ""} awaiting your review\n`;
   }
 
   await sendToChester(brief);
