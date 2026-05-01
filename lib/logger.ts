@@ -32,6 +32,9 @@ interface LogEntry {
   status: LogStatus;
   metadata?: Record<string, unknown>;
   errorMessage?: string;
+  // How many times this action was retried before this log entry was written.
+  // 0 or undefined = first attempt. Gives Chester visibility into self-healing effort.
+  retryCount?: number;
 }
 
 export async function log(entry: LogEntry): Promise<void> {
@@ -44,6 +47,7 @@ export async function log(entry: LogEntry): Promise<void> {
     entry.status,
     entry.metadata ? JSON.stringify(entry.metadata) : "",
     entry.errorMessage ?? "",
+    entry.retryCount ?? 0,
   ];
 
   try {

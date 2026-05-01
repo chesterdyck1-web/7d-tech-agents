@@ -6,6 +6,7 @@ import { readSheetAsObjects } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
 import { getFinancialSummary } from "@/agents/franklin/index";
 import { getTopMontgomerySignals } from "@/agents/montgomery/index";
+import { getAutoResolvedIssues } from "@/lib/self-heal";
 
 function getMondayISO(): string {
   const d = new Date();
@@ -23,7 +24,7 @@ function getCurrentMonthISO(): string {
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals] =
+  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals, autoResolved] =
     await Promise.all([
       readSheetAsObjects("Approval Queue"),
       readSheetAsObjects("Daily Leads"),
@@ -34,6 +35,7 @@ export async function sendDailySummary(): Promise<void> {
       readSheetAsObjects("Red Team Reports").catch(() => []),
       getFinancialSummary().catch(() => null),
       isToday(1) ? getTopMontgomerySignals().catch(() => null) : Promise.resolve(null),
+      getAutoResolvedIssues(24).catch(() => [] as string[]),
     ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -140,6 +142,41 @@ export async function sendDailySummary(): Promise<void> {
   if (financialSummary) {
     brief += `*FINANCIALS*\n`;
     brief += `  ${financialSummary}\n\n`;
+  }
+
+  // Auto-resolved issues — past tense, no action needed. Chester sees what the team handled.
+  if (autoResolved.length > 0) {
+    brief += `*OVERNIGHT — SELF-RESOLVED*\n`;
+    for (const item of autoResolved.slice(0, 4)) {
+      brief += `  ✓ ${item}\n`;
+    }
+    brief += "\n";
+  }
+
+  // Pending escalations — these are things Edmund flagged that need Chester's input
+  // (failed 3x after self-healing, or involve money/security)
+  const actionLog = await readSheetAsObjects("Action Log").catch(() => []);
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const pendingEscalations = actionLog.filter(
+    (r) =>
+      r["agent"] === "coordinator" &&
+      r["action"] === "escalation_received" &&
+      r["status"] === "failure" &&
+      r["timestamp"] &&
+      new Date(r["timestamp"]) >= last24h
+  );
+
+  if (pendingEscalations.length > 0) {
+    brief += `*NEEDS YOUR ATTENTION*\n`;
+    for (const e of pendingEscalations.slice(0, 3)) {
+      try {
+        const meta = JSON.parse(e["metadata"] ?? "{}") as Record<string, unknown>;
+        brief += `  ⚠ ${meta["fromAgent"] ?? "Agent"} — ${meta["failedAction"] ?? "unknown action"} failed ${meta["attempts"] ?? "multiple"} times after self-healing\n`;
+      } catch {
+        brief += `  ⚠ Agent escalation — check Action Log for details\n`;
+      }
+    }
+    brief += "\n";
   }
 
   // Approvals reminder at the bottom

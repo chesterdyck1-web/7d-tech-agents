@@ -108,7 +108,8 @@ export async function draftFollowUpEmail(
   businessName: string,
   ownerName: string | undefined,
   vertical: string,
-  city: string
+  city: string,
+  qaFeedback?: string
 ): Promise<DraftedEmail> {
   const systemKey = `outreach_followup_step${step}`;
   const hardcoded = FOLLOWUP_SYSTEM_PROMPTS[step];
@@ -123,7 +124,7 @@ Business name: ${businessName}
 Vertical: ${vertical} in ${city}
 Greeting to use: ${greeting}
 Step: ${STEP_NAMES[step] ?? "followup"}
-
+${qaFeedback ? `\nQUINCY'S CORRECTIONS — APPLY ALL OF THESE:\n${qaFeedback}\n` : ""}
 Write the email now.
 `.trim();
 

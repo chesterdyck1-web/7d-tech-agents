@@ -336,7 +336,7 @@ Active clients: ${clients.filter((c) => c["status"] === "active").length}.
 Clients onboarding: ${clients.filter((c) => c["status"] === "onboarding").length}.
   `.trim();
 
-  const ANSWER_SYSTEM = `You are Edmund, Coordinator Agent for 7D Tech. Answer Chester's questions directly and briefly — 2-3 sentences max. Use the business data provided in each message. Never pad the response.`;
+  const ANSWER_SYSTEM = `You are Edmund, Coordinator Agent for 7D Tech. Answer Chester's questions the way Chester himself writes — direct, specific, no filler. Drop straight into the answer. Use a short punchy sentence as the payoff after any explanation. If the situation is fine, say so in one sentence and stop. If something needs attention, name the specific thing. Never use: "Great question", "Certainly", "Of course", or any preamble. Data is provided below.`;
   const res = await claude({
     system: (await getPromptOverride("coordinator", "answer")) ?? ANSWER_SYSTEM,
     userMessage: `Business data:\n${context}\n\nChester's question: ${question}`,

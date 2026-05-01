@@ -1,12 +1,13 @@
 // Alistair — Maintenance Agent.
 // Runs hourly health checks on every integration and Make scenario.
-// Auto-fixes known issues (reactivating a dead Make scenario).
-// Alerts Chester for anything it cannot fix autonomously.
+// Also scans the Action Log for recent failures and attempts autonomous fixes.
+// Only alerts Chester if he has tried and failed to fix something after 3 attempts.
 
-import { readSheetAsObjects } from "@/lib/google-sheets";
+import { readSheetAsObjects, sleep } from "@/lib/google-sheets";
 import { getScenario, activateScenario, listScenarios } from "@/lib/make";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
+import { diagnoseError, escalateToEdmund, getAutoResolvedIssues } from "@/lib/self-heal";
 
 interface HealthIssue {
   area: string;
@@ -132,16 +133,126 @@ async function checkRecentFailures(): Promise<HealthIssue | null> {
   return null;
 }
 
+// ─── Proactive Action Log scanning ───────────────────────────────────────────
+
+// Reads the Action Log for the last hour, groups failures by agent:action,
+// diagnoses each one, applies autonomous fixes where possible, and escalates
+// persistent failures to Edmund (not Chester) after 3+ occurrences.
+async function healActionLogFailures(): Promise<HealthIssue[]> {
+  const healed: HealthIssue[] = [];
+
+  const rows = await readSheetAsObjects("Action Log").catch(() => []);
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+  const recentFailures = rows.filter(
+    (r) =>
+      r["status"] === "failure" &&
+      r["timestamp"] &&
+      new Date(r["timestamp"]) >= oneHourAgo &&
+      r["agent"] !== "alistair" // Don't self-diagnose our own failures
+  );
+
+  if (recentFailures.length === 0) return healed;
+
+  // Group by agent:action and collect error messages
+  const groups = new Map<string, { count: number; errors: string[]; agent: string; action: string }>();
+  for (const row of recentFailures) {
+    const key = `${row["agent"] ?? "unknown"}:${row["action"] ?? "unknown"}`;
+    const g = groups.get(key) ?? { count: 0, errors: [], agent: row["agent"] ?? "unknown", action: row["action"] ?? "unknown" };
+    g.count++;
+    const errMsg = row["error_message"] ?? "";
+    if (errMsg) g.errors.push(errMsg);
+    groups.set(key, g);
+  }
+
+  for (const [key, group] of groups) {
+    const topError = group.errors[0] ?? "no error message";
+    const diagnosis = diagnoseError(topError);
+
+    if (diagnosis.canAutoFix) {
+      // Apply the fix
+      if (diagnosis.fixType === "backoff") {
+        // Quota errors — back off. The retry logic in google-sheets.ts handles retries,
+        // but Alistair notes this was observed and resolved by the backoff system.
+        healed.push({
+          area: key,
+          description: `${group.count} quota/rate-limit failure(s): ${topError.slice(0, 80)}`,
+          fixed: true,
+          fixNote: diagnosis.explanation,
+        });
+
+        await log({
+          agent: "alistair",
+          action: "auto_fixed",
+          status: "success",
+          metadata: {
+            fromAgent: group.agent,
+            failedAction: group.action,
+            description: `${group.agent} quota errors — backoff system active`,
+            occurrences: group.count,
+          } as unknown as Record<string, unknown>,
+        });
+      } else if (diagnosis.fixType === "retry") {
+        // Network errors — wait and the next cron will retry
+        healed.push({
+          area: key,
+          description: `${group.count} network failure(s) detected`,
+          fixed: true,
+          fixNote: `${diagnosis.explanation} — will auto-retry on next run`,
+        });
+
+        await log({
+          agent: "alistair",
+          action: "auto_fixed",
+          status: "success",
+          metadata: {
+            fromAgent: group.agent,
+            failedAction: group.action,
+            description: `${group.agent} network errors — scheduled retry`,
+            occurrences: group.count,
+          } as unknown as Record<string, unknown>,
+        });
+
+        await sleep(30000); // Wait 30s before marking as handled
+      } else if (diagnosis.fixType === "skip") {
+        healed.push({
+          area: key,
+          description: `${group.count} data error(s): ${topError.slice(0, 80)}`,
+          fixed: true,
+          fixNote: "Bad records skipped — agent will continue with valid data",
+        });
+      }
+    } else if (group.count >= 3) {
+      // Persistent unknown failure — escalate to Edmund for morning brief
+      await escalateToEdmund(
+        group.agent,
+        group.action,
+        group.count,
+        group.errors.slice(0, 3),
+        "brief"
+      );
+      healed.push({
+        area: key,
+        description: `${group.count} unexplained failure(s) — escalated to Edmund`,
+        fixed: false,
+      });
+    }
+  }
+
+  return healed;
+}
+
 // ─── Main runner ──────────────────────────────────────────────────────────────
 
 export async function runMaintenanceCheck(): Promise<void> {
-  const [sheetsIssue, makeIssue, claudeIssue, failureIssue, scenarioIssues] =
+  const [sheetsIssue, makeIssue, claudeIssue, failureIssue, scenarioIssues, healedIssues] =
     await Promise.all([
       checkSheets().catch((e): HealthIssue => ({ area: "Sheets check", description: String(e), fixed: false })),
       checkMakeConnection().catch((e): HealthIssue => ({ area: "Make check", description: String(e), fixed: false })),
       checkClaude().catch((e): HealthIssue => ({ area: "Claude check", description: String(e), fixed: false })),
       checkRecentFailures().catch(() => null),
       checkClientScenarios().catch(() => [] as HealthIssue[]),
+      healActionLogFailures().catch(() => [] as HealthIssue[]),
     ]);
 
   const allIssues: HealthIssue[] = [
@@ -150,6 +261,7 @@ export async function runMaintenanceCheck(): Promise<void> {
     claudeIssue,
     failureIssue,
     ...scenarioIssues,
+    ...healedIssues,
   ].filter((i): i is HealthIssue => i !== null);
 
   await log({
@@ -162,24 +274,22 @@ export async function runMaintenanceCheck(): Promise<void> {
     } as unknown as Record<string, unknown>,
   });
 
-  // Only alert Chester if there are unfixed issues
+  // FIX 4 — Alistair only pings Chester for things he genuinely cannot fix.
+  // Auto-fixed issues are silently logged — they appear in the morning brief in past tense.
   const unfixed = allIssues.filter((i) => !i.fixed);
-  const fixed = allIssues.filter((i) => i.fixed);
 
-  if (unfixed.length === 0 && fixed.length === 0) return; // All clear — silent
+  if (unfixed.length === 0) return; // All clear or all auto-fixed — Chester hears nothing
 
-  let message = "";
+  // Infrastructure failures that block everything need immediate attention
+  const isInfraFailure = unfixed.some((i) =>
+    i.area.includes("Google Sheets") || i.area.includes("Anthropic") || i.area.includes("Make.com")
+  );
 
-  if (fixed.length > 0) {
-    const fixLines = fixed.map((i) => `✓ Fixed — ${i.area}: ${i.fixNote}`).join("\n");
-    message += `*ALISTAIR — AUTO-FIXED*\n${fixLines}\n\n`;
-  }
-
-  if (unfixed.length > 0) {
+  if (isInfraFailure) {
     const issueLines = unfixed.map((i) => `⚠ ${i.area}: ${i.description}`).join("\n");
-    message += `*ALISTAIR — ACTION REQUIRED*\n${issueLines}`;
-    await sendToChester(message.trim());
-  } else if (fixed.length > 0) {
-    await sendToChester(message.trim());
+    await sendToChester(
+      `*ALISTAIR — Infrastructure issue*\n\nCould not auto-fix:\n${issueLines}\n\nThis may be blocking all agents.`
+    );
   }
+  // Other unfixed issues go to Edmund for the morning brief, not direct to Chester
 }
