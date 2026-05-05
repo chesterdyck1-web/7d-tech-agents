@@ -6,7 +6,6 @@ import { runProspecting } from "@/agents/prospecting/index";
 import { env } from "@/lib/env";
 import { log } from "@/lib/logger";
 
-// 300s — prospecting + auto-triggered outreach run back-to-back in this function.
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {

@@ -13,7 +13,6 @@ import { writeToMasterLeads, writeToDailyLeads } from "./sheet-writer";
 import { TARGET_CITIES } from "@/config/cities";
 import { VERTICALS } from "@/config/verticals";
 import { sendToChester } from "@/lib/telegram";
-import { runOutreach } from "@/agents/outreach/index";
 
 export interface ProspectingResult {
   found: number;
@@ -120,34 +119,17 @@ export async function runProspecting(): Promise<ProspectingResult> {
   });
 
   if (result.written === 0) {
-    // No new leads — outreach has nothing to do, skip it silently
-    await log({
-      agent: "prospecting",
-      action: "outreach_skipped",
-      status: "success",
-      metadata: { reason: "no new leads written today" } as unknown as Record<string, unknown>,
-    });
     await sendToChester(
       `*Prospecting — ${city.name}*\nNo new leads today (${result.found} found, ${result.deduplicated} already in system). No outreach queued.`
     );
     return result;
   }
 
-  // New leads found — hand off to Cornelius immediately
-  // Chester hears one combined message after both complete, not two separate ones
+  // New leads written — Cornelius picks them up at 8 AM ET via the outreach cron.
+  // Chester sees one combined summary in the 9 AM brief after both have run.
   await sendToChester(
-    `*Prospecting — ${city.name}*\n${result.written} new leads | ${result.emailsDiscovered} emails found | ${result.deduplicated} duplicates skipped\n\nHanding off to Cornelius now — emails will be in your dashboard before the 8 AM brief.`
+    `*Prospecting — ${city.name}*\n${result.written} new leads written | ${result.emailsDiscovered} emails found | ${result.deduplicated} duplicates skipped\n\nCornelius will draft and queue emails at 8 AM ET — they will be ready in your dashboard before the morning brief.`
   );
-
-  await log({
-    agent: "prospecting",
-    action: "outreach_handoff",
-    status: "pending",
-    metadata: { newLeads: result.written, city: city.name } as unknown as Record<string, unknown>,
-  });
-
-  // Outreach runs inline — limit to today's new leads only
-  await runOutreach(result.written);
 
   return result;
 }

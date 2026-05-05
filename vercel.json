@@ -17,6 +17,10 @@
       "schedule": "0 11 * * *"
     },
     {
+      "path": "/api/cron/outreach",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/cron/performance-review",
       "schedule": "0 11 * * 1"
     },
