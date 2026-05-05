@@ -17,7 +17,8 @@ import type { DraftEmailInput } from "./email-drafter";
 // Draft → QA → fix loop running entirely in memory.
 // Cornelius drafts, Quincy validates, specific fix instructions go back to Cornelius on failure.
 // Up to 3 attempts before escalating. Chester only ever sees approved drafts.
-async function draftWithQALoop(
+// Exported so the single-lead test endpoint can call it directly.
+export async function draftWithQALoop(
   input: DraftEmailInput,
   label: string
 ): Promise<{ subject: string; body: string } | null> {
