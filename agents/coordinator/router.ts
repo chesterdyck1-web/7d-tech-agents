@@ -10,6 +10,8 @@ export type Intent =
   | "send_prescription"
   | "build_spec"
   | "run_prospecting"
+  | "skip_prospecting"
+  | "leads_count"
   | "run_outreach"
   | "submit_content"
   | "content_status"
@@ -35,7 +37,9 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t.startsWith("audit ")) return "run_audit";
   if (t.startsWith("send prescription for")) return "send_prescription";
   if (t.startsWith("build ")) return "build_spec";
-  if (t.includes("run prospecting")) return "run_prospecting";
+  if (t.includes("skip prospecting")) return "skip_prospecting";
+  if (t.includes("how many leads") || t.includes("leads count") || t.includes("uncontacted leads")) return "leads_count";
+  if (t.includes("run prospecting") || t.includes("prospect for")) return "run_prospecting";
   if (t.includes("run outreach") || t.includes("send emails")) return "run_outreach";
   if (t.startsWith("new video")) return "submit_content";
   if (t.includes("content status")) return "content_status";

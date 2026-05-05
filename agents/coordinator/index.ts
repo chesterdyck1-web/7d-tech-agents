@@ -87,8 +87,9 @@ Become the number one AI agency in North America. Use agency cash flow to acquir
 YOUR JOB RIGHT NOW:
 Classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
-build_spec | run_prospecting | content_status | view_performance | view_intelligence | view_red_team |
-view_financial | view_coaching | view_tech_brief | view_black_swan | view_errors | get_summary | ask_question
+build_spec | run_prospecting | skip_prospecting | leads_count | content_status | view_performance |
+view_intelligence | view_red_team | view_financial | view_coaching | view_tech_brief |
+view_black_swan | view_errors | get_summary | ask_question
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -184,9 +185,9 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
     }
 
     case "run_outreach": {
-      await sendToChester("Starting outreach run — drafting emails for today's leads now.");
-      const { runOutreach } = await import("@/agents/outreach/index");
-      await runOutreach();
+      await sendToChester("Running the daily outreach flow now — calculating capacity and drafting emails.");
+      const { runDailyOutreachFlow } = await import("@/lib/daily-flow");
+      await runDailyOutreachFlow();
       break;
     }
 
@@ -278,9 +279,39 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
     }
 
     case "run_prospecting": {
-      await sendToChester("Starting prospecting run now — I will message you when it is done.");
-      const { runProspecting } = await import("@/agents/prospecting/index");
-      await runProspecting();
+      // Parse optional lead count: "run prospecting for 20 leads" → 20
+      const numMatch = originalText.match(/for\s+(\d+)\s+leads?/i);
+      const overrideSlots = numMatch ? parseInt(numMatch[1]!, 10) : undefined;
+      const msg = overrideSlots
+        ? `Running the daily flow targeting exactly ${overrideSlots} leads — calculating capacity and finding leads.`
+        : "Running the daily outreach flow now — calculating today's capacity and finding leads.";
+      await sendToChester(msg);
+      const { runDailyOutreachFlow: flow } = await import("@/lib/daily-flow");
+      await flow(overrideSlots);
+      break;
+    }
+
+    case "skip_prospecting": {
+      await sendToChester("Skipping prospecting today. Setting available slots to 0 — no outreach will run this morning.");
+      await log({
+        agent: "coordinator",
+        action: "prospecting_manually_skipped",
+        status: "success",
+        metadata: { triggeredBy: "chester" } as unknown as Record<string, unknown>,
+      });
+      break;
+    }
+
+    case "leads_count": {
+      const { getUncontactedLeads } = await import("@/lib/capacity");
+      const { getAvailableSlots } = await import("@/lib/capacity");
+      const [uncontacted, slots] = await Promise.all([
+        getUncontactedLeads(1000), // read up to 1000 to get total count
+        getAvailableSlots(),
+      ]);
+      await sendToChester(
+        `*LEADS INVENTORY*\nUncontacted in Master Leads: ${uncontacted.length}\nAvailable email slots today: ${slots} of 30\n\nIf you want me to run outreach now, reply "run outreach".`
+      );
       break;
     }
 

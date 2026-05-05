@@ -9,6 +9,7 @@ import { sendToChester } from "@/lib/telegram";
 import { getFinancialSummary } from "@/agents/franklin/index";
 import { getTopMontgomerySignals } from "@/agents/montgomery/index";
 import { getAutoResolvedIssues } from "@/lib/self-heal";
+import { getAvailableSlots, DAILY_EMAIL_MAX } from "@/lib/capacity";
 
 function getMondayISO(): string {
   const d = new Date();
@@ -34,7 +35,7 @@ function esc(text: string): string {
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals, autoResolved] =
+  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals, autoResolved, remainingSlots] =
     await Promise.all([
       readSheetAsObjects("Approval Queue"),
       readSheetAsObjects("Daily Leads"),
@@ -46,6 +47,7 @@ export async function sendDailySummary(): Promise<void> {
       getFinancialSummary().catch(() => null),
       isToday(1) ? getTopMontgomerySignals().catch(() => null) : Promise.resolve(null),
       getAutoResolvedIssues(24).catch(() => [] as string[]),
+      getAvailableSlots().catch(() => null as number | null),
     ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -97,10 +99,40 @@ export async function sendDailySummary(): Promise<void> {
 
   let brief = `<b>GOOD MORNING CHESTER — 7D BRIEF</b>\n${esc(dateStr)}\n\n`;
 
+  // Today's flow result from Action Log (written by runDailyOutreachFlow at 6 AM)
+  const actionLogAll = await readSheetAsObjects("Action Log").catch(() => []);
+  const todayFlowEntry = actionLogAll
+    .filter(r => r["agent"] === "coordinator" && r["action"] === "daily_flow_completed" && r["timestamp"]?.startsWith(today))
+    .slice(-1)[0];
+  let flowMeta: Record<string, unknown> = {};
+  try { flowMeta = JSON.parse(todayFlowEntry?.["metadata"] ?? "{}") as Record<string, unknown>; } catch { /* ok */ }
+
+  // Capacity — show what the 6 AM flow did and what's left today
+  brief += `<b>CAPACITY</b>\n`;
+  if (todayFlowEntry) {
+    const totalQ = flowMeta["totalQueued"] as number | undefined;
+    const uncontacted = flowMeta["uncontactedUsed"] as number | undefined;
+    const prospected = flowMeta["prospectsFound"] as number | undefined;
+    const shortfall = flowMeta["shortfall"] as number | undefined;
+    const followUps = flowMeta["followUpsQueued"] as number | undefined;
+    const slots = flowMeta["availableSlots"] as number | undefined;
+    brief += `  Capacity today: ${slots ?? "?"} of ${DAILY_EMAIL_MAX} emails\n`;
+    if (followUps && followUps > 0) brief += `  Follow-ups queued: ${followUps}\n`;
+    if (uncontacted && uncontacted > 0) brief += `  Existing leads used: ${uncontacted}\n`;
+    if (prospected && prospected > 0) brief += `  New leads prospected: ${prospected}\n`;
+    if (shortfall && shortfall > 0) brief += `  ⚠ Leads not found: ${shortfall} (insufficient results in target area)\n`;
+    brief += `  Emails drafted: ${totalQ ?? "?"} | In your dashboard: ${pendingApprovals.length}\n`;
+  } else if (remainingSlots !== null) {
+    brief += `  Available slots right now: ${remainingSlots} of ${DAILY_EMAIL_MAX}\n`;
+    brief += `  In your dashboard: ${pendingApprovals.length}\n`;
+  } else {
+    brief += `  In your dashboard: ${pendingApprovals.length}\n`;
+  }
+  brief += "\n";
+
   // Pipeline
   brief += `<b>PIPELINE</b>\n`;
-  brief += `  New leads: ${todayLeads.length}  |  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← approve at /dashboard" : ""}\n`;
-  brief += `  Weekly call target: ${callsBookedThisWeek} of 3\n\n`;
+  brief += `  New leads today: ${todayLeads.length}  |  Weekly call target: ${callsBookedThisWeek} of 3\n\n`;
 
   // Clients
   brief += `<b>CLIENTS</b>\n`;
@@ -169,10 +201,9 @@ export async function sendDailySummary(): Promise<void> {
     brief += "\n";
   }
 
-  // Pending escalations that need Chester's input
-  const actionLog = await readSheetAsObjects("Action Log").catch(() => []);
+  // Pending escalations that need Chester's input (reuse the Action Log already fetched above)
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const pendingEscalations = actionLog.filter(
+  const pendingEscalations = actionLogAll.filter(
     (r) =>
       r["agent"] === "coordinator" &&
       r["action"] === "escalation_received" &&

@@ -1,8 +1,9 @@
 // Cron route — fires at 6 AM ET daily (11:00 UTC).
-// Runs the Prospecting Agent to find new leads.
+// Runs the demand-driven daily outreach flow: capacity check → existing leads
+// → prospect if needed → Cornelius drafts → Chester's dashboard.
 
 import { NextRequest, NextResponse } from "next/server";
-import { runProspecting } from "@/agents/prospecting/index";
+import { runDailyOutreachFlow } from "@/lib/daily-flow";
 import { env } from "@/lib/env";
 import { log } from "@/lib/logger";
 
@@ -15,12 +16,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await runProspecting();
+    const result = await runDailyOutreachFlow();
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     await log({
-      agent: "prospecting",
-      action: "cron_run",
+      agent: "coordinator",
+      action: "daily_flow_cron",
       status: "failure",
       errorMessage: String(err),
     });
