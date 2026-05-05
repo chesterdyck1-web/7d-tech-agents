@@ -5,26 +5,45 @@ import { env } from "@/lib/env";
 
 const BASE = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
 
-// Send a plain-text or Markdown message to Chester.
+// Send a plain-text, Markdown, or HTML message to Chester.
+// If Telegram rejects the message due to a parse error, the wrapper strips all
+// formatting and retries as plain text — a plain brief is better than no brief.
 export async function sendToChester(
   text: string,
   parseMode: "Markdown" | "HTML" | "none" = "Markdown"
 ): Promise<void> {
-  const body: Record<string, unknown> = {
-    chat_id: env.TELEGRAM_CHESTER_CHAT_ID,
-    text,
+  const sendRaw = async (t: string, mode: "Markdown" | "HTML" | "none") => {
+    const body: Record<string, unknown> = {
+      chat_id: env.TELEGRAM_CHESTER_CHAT_ID,
+      text: t,
+    };
+    if (mode !== "none") body["parse_mode"] = mode;
+
+    const res = await fetch(`${BASE}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Telegram sendMessage failed: ${err}`);
+    }
   };
-  if (parseMode !== "none") body["parse_mode"] = parseMode;
 
-  const res = await fetch(`${BASE}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram sendMessage failed: ${err}`);
+  try {
+    await sendRaw(text, parseMode);
+  } catch (err) {
+    const msg = String(err);
+    if (parseMode !== "none" && msg.includes("can't parse entities")) {
+      // Strip all HTML tags and Markdown special chars, retry as plain text
+      const plain = text
+        .replace(/<[^>]+>/g, "")
+        .replace(/[*_`[\]()~>#+=|{}.!]/g, "");
+      await sendRaw(plain, "none");
+    } else {
+      throw err;
+    }
   }
 }
 

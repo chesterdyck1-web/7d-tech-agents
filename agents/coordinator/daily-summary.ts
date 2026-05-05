@@ -1,4 +1,6 @@
 // Builds and sends the 8 AM daily brief to Chester via Telegram.
+// Uses HTML parse_mode — more forgiving than Markdown because business names,
+// financial figures, and external data can contain Markdown special characters.
 // Monday briefs include the Iris intel summary and any Red Team flags.
 // All data is read live from Google Sheets each morning.
 
@@ -21,6 +23,14 @@ function isToday(dayOfWeek: number): boolean {
 
 function getCurrentMonthISO(): string {
   return new Date().toISOString().slice(0, 7); // YYYY-MM
+}
+
+// Escape characters that have special meaning in Telegram HTML mode
+function esc(text: string): string {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 export async function sendDailySummary(): Promise<void> {
@@ -83,90 +93,83 @@ export async function sendDailySummary(): Promise<void> {
   const mrrMatch = financialSummary?.match(/MRR[:\s]+\$?([\d,]+)/i);
   const mrrDisplay = mrrMatch ? `$${mrrMatch[1]} CAD` : null;
 
-  // Count booked calls this week from Approval Queue (type=demo_booked or check Action Log)
-  const thisWeekStart = new Date();
-  thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
-  thisWeekStart.setHours(0, 0, 0, 0);
-  // Simple heuristic — count pending approvals as proxy for pipeline activity
   const callsBookedThisWeek = 0; // Dorian tracks this — placeholder until Sales Intelligence sheet is live
 
-  let brief = `*GOOD MORNING CHESTER — 7D BRIEF*\n${dateStr}\n\n`;
+  let brief = `<b>GOOD MORNING CHESTER — 7D BRIEF</b>\n${esc(dateStr)}\n\n`;
 
   // Pipeline
-  brief += `*PIPELINE*\n`;
+  brief += `<b>PIPELINE</b>\n`;
   brief += `  New leads: ${todayLeads.length}  |  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← approve at /dashboard" : ""}\n`;
   brief += `  Weekly call target: ${callsBookedThisWeek} of 3\n\n`;
 
   // Clients
-  brief += `*CLIENTS*\n`;
+  brief += `<b>CLIENTS</b>\n`;
   brief += `  Active: ${activeClients.length}`;
-  if (mrrDisplay) brief += `  |  MRR: ${mrrDisplay}`;
+  if (mrrDisplay) brief += `  |  MRR: ${esc(mrrDisplay)}`;
   if (onboardingClients.length > 0) {
-    const names = onboardingClients.map((c) => c["business_name"]).join(", ");
+    const names = onboardingClients.map((c) => esc(c["business_name"] ?? "")).join(", ");
     brief += `\n  Onboarding: ${onboardingClients.length} (${names})`;
   }
   brief += "\n\n";
 
   // Content
-  brief += `*CONTENT*\n`;
+  brief += `<b>CONTENT</b>\n`;
   brief += `  Posted: ${postedContent.length}  |  Pending your approval: ${pendingContent.length}${pendingContent.length > 0 ? " ← approve at /dashboard" : ""}\n\n`;
 
   // Performance flags
   if (flaggedMetrics.length > 0) {
-    brief += `*AGENT PERFORMANCE ALERTS*\n`;
+    brief += `<b>AGENT PERFORMANCE ALERTS</b>\n`;
     for (const f of flaggedMetrics) {
-      const value = f["metric_value"] ?? "?";
-      const alert = f["alert_threshold"] ?? "?";
-      const unit = f["unit"] ?? "";
-      brief += `  ⚠ ${f["metric_name"]}: ${value}${unit} (below ${alert}${unit} threshold)\n`;
+      const value = esc(f["metric_value"] ?? "?");
+      const alert = esc(f["alert_threshold"] ?? "?");
+      const unit = esc(f["unit"] ?? "");
+      brief += `  ⚠ ${esc(f["metric_name"] ?? "")}: ${value}${unit} (below ${alert}${unit} threshold)\n`;
     }
     brief += "\n";
   }
 
   // Intelligence brief — show on Mondays or when a new brief exists for this week
   if (thisWeekBrief && isToday(1)) {
-    brief += `*INTELLIGENCE BRIEF — NEW THIS WEEK*\n`;
+    brief += `<b>INTELLIGENCE BRIEF — NEW THIS WEEK</b>\n`;
     brief += `  Iris published your weekly market brief — reply "intel brief" for the full report\n`;
     if (thisWeekBrief["rating"]) {
-      brief += `  Your rating last week: ${thisWeekBrief["rating"]}/5\n`;
+      brief += `  Your rating last week: ${esc(thisWeekBrief["rating"])}/5\n`;
     }
     brief += "\n";
   } else if (thisWeekBrief && !thisWeekBrief["rating"]) {
-    // Brief exists but Chester hasn't rated it yet — nudge
-    brief += `*INTELLIGENCE BRIEF*\n`;
+    brief += `<b>INTELLIGENCE BRIEF</b>\n`;
     brief += `  This week's brief is ready — reply "intel brief" to view it, then rate 1–5 in the sheet\n\n`;
   }
 
   // Red Team flag — show whenever there's an active high/critical finding this month
   if (redTeamFlag) {
-    brief += `*RED TEAM ALERT*\n`;
-    brief += `  ${redTeamFlag["severity"]!.toUpperCase()} severity finding this month — reply "red team report" for details\n\n`;
+    brief += `<b>RED TEAM ALERT</b>\n`;
+    brief += `  ${esc((redTeamFlag["severity"] ?? "").toUpperCase())} severity finding this month — reply "red team report" for details\n\n`;
   }
 
   // Montgomery Black Swan signals — Mondays only, high/existential only
   if (montgomerySignals) {
-    brief += `*MONTGOMERY — BLACK SWAN SIGNALS*\n`;
-    brief += montgomerySignals + "\n";
+    brief += `<b>MONTGOMERY — BLACK SWAN SIGNALS</b>\n`;
+    brief += esc(montgomerySignals) + "\n";
     brief += `  Reply "black swan brief" for the full report\n\n`;
   }
 
   // Financial summary (from Franklin)
   if (financialSummary) {
-    brief += `*FINANCIALS*\n`;
-    brief += `  ${financialSummary}\n\n`;
+    brief += `<b>FINANCIALS</b>\n`;
+    brief += `  ${esc(financialSummary)}\n\n`;
   }
 
-  // Auto-resolved issues — past tense, no action needed. Chester sees what the team handled.
+  // Auto-resolved issues — past tense, no action needed
   if (autoResolved.length > 0) {
-    brief += `*OVERNIGHT — SELF-RESOLVED*\n`;
+    brief += `<b>OVERNIGHT — SELF-RESOLVED</b>\n`;
     for (const item of autoResolved.slice(0, 4)) {
-      brief += `  ✓ ${item}\n`;
+      brief += `  ✓ ${esc(item)}\n`;
     }
     brief += "\n";
   }
 
-  // Pending escalations — these are things Edmund flagged that need Chester's input
-  // (failed 3x after self-healing, or involve money/security)
+  // Pending escalations that need Chester's input
   const actionLog = await readSheetAsObjects("Action Log").catch(() => []);
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const pendingEscalations = actionLog.filter(
@@ -179,11 +182,11 @@ export async function sendDailySummary(): Promise<void> {
   );
 
   if (pendingEscalations.length > 0) {
-    brief += `*NEEDS YOUR ATTENTION*\n`;
+    brief += `<b>NEEDS YOUR ATTENTION</b>\n`;
     for (const e of pendingEscalations.slice(0, 3)) {
       try {
         const meta = JSON.parse(e["metadata"] ?? "{}") as Record<string, unknown>;
-        brief += `  ⚠ ${meta["fromAgent"] ?? "Agent"} — ${meta["failedAction"] ?? "unknown action"} failed ${meta["attempts"] ?? "multiple"} times after self-healing\n`;
+        brief += `  ⚠ ${esc(String(meta["fromAgent"] ?? "Agent"))} — ${esc(String(meta["failedAction"] ?? "unknown action"))} failed ${esc(String(meta["attempts"] ?? "multiple"))} times after self-healing\n`;
       } catch {
         brief += `  ⚠ Agent escalation — check Action Log for details\n`;
       }
@@ -193,12 +196,12 @@ export async function sendDailySummary(): Promise<void> {
 
   // Approvals reminder
   if (pendingApprovals.length > 0) {
-    brief += `*APPROVALS NEEDED* ← open /dashboard to approve\n`;
+    brief += `<b>APPROVALS NEEDED</b> ← open /dashboard to approve\n`;
     brief += `  ${pendingApprovals.length} item${pendingApprovals.length !== 1 ? "s" : ""} awaiting your review\n\n`;
   }
 
   // Edmund's single recommended focus for Chester today
-  brief += `*YOUR ONE PRIORITY TODAY*\n`;
+  brief += `<b>YOUR ONE PRIORITY TODAY</b>\n`;
   if (pendingApprovals.length > 0) {
     brief += `  Approve the ${pendingApprovals.length} outreach email${pendingApprovals.length !== 1 ? "s" : ""} at /dashboard — getting those out today moves the pipeline.`;
   } else if (todayLeads.length === 0) {
@@ -210,5 +213,5 @@ export async function sendDailySummary(): Promise<void> {
   }
   brief += "\n";
 
-  await sendToChester(brief);
+  await sendToChester(brief, "HTML");
 }
