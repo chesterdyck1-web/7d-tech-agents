@@ -10,6 +10,7 @@ import { getFinancialSummary } from "@/agents/franklin/index";
 import { getTopMontgomerySignals } from "@/agents/montgomery/index";
 import { getAutoResolvedIssues } from "@/lib/self-heal";
 import { getAvailableSlots, DAILY_EMAIL_MAX } from "@/lib/capacity";
+import { getActiveGoal, getGoalTrackingStatus, getConversionRates } from "@/lib/goals";
 
 function getMondayISO(): string {
   const d = new Date();
@@ -35,7 +36,7 @@ function esc(text: string): string {
 }
 
 export async function sendDailySummary(): Promise<void> {
-  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals, autoResolved, remainingSlots] =
+  const [approvals, leads, clients, metrics, content, intelBriefs, redTeamReports, financialSummary, montgomerySignals, autoResolved, remainingSlots, activeGoal, conversionRates] =
     await Promise.all([
       readSheetAsObjects("Approval Queue"),
       readSheetAsObjects("Daily Leads"),
@@ -48,6 +49,8 @@ export async function sendDailySummary(): Promise<void> {
       isToday(1) ? getTopMontgomerySignals().catch(() => null) : Promise.resolve(null),
       getAutoResolvedIssues(24).catch(() => [] as string[]),
       getAvailableSlots().catch(() => null as number | null),
+      getActiveGoal().catch(() => null),
+      getConversionRates().catch(() => null),
     ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -99,6 +102,25 @@ export async function sendDailySummary(): Promise<void> {
 
   let brief = `<b>GOOD MORNING CHESTER — 7D BRIEF</b>\n${esc(dateStr)}\n\n`;
 
+  // Weekly goal tracking — shown whenever a goal is active
+  if (activeGoal && conversionRates) {
+    const tracking = getGoalTrackingStatus(activeGoal, conversionRates);
+    const projectedCalls = Math.round(activeGoal.emailsSent * conversionRates.emailReplyRate * conversionRates.replyToCallRate);
+    const targetLabel = activeGoal.goalType === "calls_week" ? `${activeGoal.target} calls`
+      : activeGoal.goalType === "replies_week" ? `${activeGoal.target} replies`
+      : `${activeGoal.target} clients`;
+    const daysLeft = Math.max(0, Math.round((new Date(activeGoal.deadline).getTime() - Date.now()) / 86400000));
+    const progressBar = activeGoal.emailsNeeded > 0
+      ? `${activeGoal.emailsSent}/${activeGoal.emailsNeeded} emails`
+      : "";
+    const trackingLabel = tracking === "achieved" ? "✓ Achieved" : tracking === "ahead" ? "↑ Ahead" : tracking === "behind" ? "⚠ Behind" : "→ On track";
+
+    brief += `<b>WEEKLY GOAL: ${esc(targetLabel)}</b>\n`;
+    brief += `  ${esc(trackingLabel)} | ${activeGoal.callsBooked} booked | ${activeGoal.target - activeGoal.callsBooked} remaining | ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left\n`;
+    if (progressBar) brief += `  ${esc(progressBar)} | Projected: ${projectedCalls} calls at current rate\n`;
+    brief += "\n";
+  }
+
   // Today's flow result from Action Log (written by runDailyOutreachFlow at 6 AM)
   const actionLogAll = await readSheetAsObjects("Action Log").catch(() => []);
   const todayFlowEntry = actionLogAll
@@ -122,6 +144,7 @@ export async function sendDailySummary(): Promise<void> {
     if (prospected && prospected > 0) brief += `  New leads prospected: ${prospected}\n`;
     if (shortfall && shortfall > 0) brief += `  ⚠ Leads not found: ${shortfall} (insufficient results in target area)\n`;
     brief += `  Emails drafted: ${totalQ ?? "?"} | In your dashboard: ${pendingApprovals.length}\n`;
+    if (activeGoal) brief += `  Today's goal contribution: ${esc(String(slots ?? activeGoal.dailyCapacity))} emails toward ${esc(activeGoal.target > 0 ? `${activeGoal.target}-${activeGoal.goalType === "calls_week" ? "call" : "reply"} goal` : activeGoal.goalType)}\n`;
   } else if (remainingSlots !== null) {
     brief += `  Available slots right now: ${remainingSlots} of ${DAILY_EMAIL_MAX}\n`;
     brief += `  In your dashboard: ${pendingApprovals.length}\n`;

@@ -87,9 +87,15 @@ Become the number one AI agency in North America. Use agency cash flow to acquir
 YOUR JOB RIGHT NOW:
 Classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
-build_spec | run_prospecting | skip_prospecting | leads_count | content_status | view_performance |
-view_intelligence | view_red_team | view_financial | view_coaching | view_tech_brief |
-view_black_swan | view_errors | get_summary | ask_question
+build_spec | run_prospecting | skip_prospecting | leads_count | set_goal | approve_goal |
+goal_status | content_status | view_performance | view_intelligence | view_red_team |
+view_financial | view_coaching | view_tech_brief | view_black_swan | view_errors |
+get_summary | ask_question
+
+Goal intents:
+- set_goal: Chester states a target ("I need 3 calls this week", "light week", "pause outreach")
+- approve_goal: Chester approves a plan Edmund proposed ("approve goal")
+- goal_status: Chester asks about progress ("goal status", "how are we tracking")
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -311,6 +317,72 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       ]);
       await sendToChester(
         `*LEADS INVENTORY*\nUncontacted in Master Leads: ${uncontacted.length}\nAvailable email slots today: ${slots} of 30\n\nIf you want me to run outreach now, reply "run outreach".`
+      );
+      break;
+    }
+
+    case "set_goal": {
+      const { parseGoalFromMessage, calculateGoalMath, storePendingGoal, getConversionRates } = await import("@/lib/goals");
+      const parsed = parseGoalFromMessage(originalText);
+      if (!parsed) {
+        await sendToChester(
+          `I didn't catch the goal. Try: "I need 3 calls booked this week", "light week", or "pause outreach".`
+        );
+        break;
+      }
+      const [rates] = await Promise.all([getConversionRates()]);
+      const math = calculateGoalMath(parsed.goalType, parsed.target, parsed.deadline, rates);
+      await storePendingGoal(parsed.goalType, parsed.target, parsed.deadline, math);
+      await sendToChester(math.confirmationMessage);
+      break;
+    }
+
+    case "approve_goal": {
+      const { activatePendingGoal } = await import("@/lib/goals");
+      const goal = await activatePendingGoal();
+      if (!goal) {
+        await sendToChester(`No pending goal to approve. State a goal first — e.g. "I need 3 calls booked this week".`);
+        break;
+      }
+      const label = goal.goalType === "calls_week" ? `${goal.target} calls this week`
+        : goal.goalType === "replies_week" ? `${goal.target} replies this week`
+        : goal.goalType === "clients_month" ? `${goal.target} new clients this month`
+        : goal.goalType === "maximize" ? "maximize outreach this week"
+        : goal.goalType === "light_week" ? "light week"
+        : "pause outreach";
+      await sendToChester(
+        `Goal set: ${label}.\nI will run at ${goal.dailyCapacity} emails/day. Progress updates in your morning brief.\nThe 6 AM flow will target ${goal.dailyCapacity} leads per day automatically.`
+      );
+      await log({
+        agent: "coordinator",
+        action: "goal_activated",
+        entityId: goal.goalId,
+        status: "success",
+        metadata: { goalType: goal.goalType, target: goal.target, deadline: goal.deadline, dailyCapacity: goal.dailyCapacity } as unknown as Record<string, unknown>,
+      });
+      break;
+    }
+
+    case "goal_status": {
+      const { getActiveGoal, getGoalTrackingStatus, getConversionRates } = await import("@/lib/goals");
+      const [goal, rates] = await Promise.all([getActiveGoal(), getConversionRates()]);
+      if (!goal) {
+        await sendToChester(`No active weekly goal. Set one with "I need X calls booked this week".`);
+        break;
+      }
+      const tracking = getGoalTrackingStatus(goal, rates);
+      const projectedCalls = Math.round(goal.emailsSent * rates.emailReplyRate * rates.replyToCallRate);
+      const targetLabel = goal.goalType === "calls_week" ? `${goal.target} calls`
+        : goal.goalType === "replies_week" ? `${goal.target} replies`
+        : `${goal.target} clients`;
+      const statusEmoji = tracking === "achieved" ? "✓" : tracking === "ahead" ? "↑" : tracking === "behind" ? "⚠" : "→";
+      await sendToChester(
+        `*WEEKLY GOAL: ${targetLabel}*\n` +
+        `${statusEmoji} Status: ${tracking.replace("_", " ")}\n` +
+        `Emails sent this week: ${goal.emailsSent} of ${goal.emailsNeeded} needed\n` +
+        `Calls booked: ${goal.callsBooked} of ${goal.target} target\n` +
+        `Projected end of week: ${projectedCalls} calls at current reply rate\n` +
+        `Deadline: ${goal.deadline}`
       );
       break;
     }

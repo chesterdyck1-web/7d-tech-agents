@@ -5,6 +5,8 @@
 import { getAvailableSlots, markStaleLeads, getUncontactedLeads, DAILY_EMAIL_MAX } from "@/lib/capacity";
 import { runProspecting } from "@/agents/prospecting/index";
 import { draftAndQueueLeads, runFollowUps } from "@/agents/outreach/index";
+import { getActiveGoal, getGoalDailyCapacity, updateGoalProgress } from "@/lib/goals";
+import { readSheetAsObjects } from "@/lib/google-sheets";
 import { log } from "@/lib/logger";
 import { sendToChester } from "@/lib/telegram";
 
@@ -27,10 +29,22 @@ export async function runDailyOutreachFlow(overrideSlots?: number): Promise<Dail
   // Step 1: Mark stale leads before calculating capacity
   const staleMarked = await markStaleLeads();
 
-  // Step 2: Calculate how many emails can go out today
-  const availableSlots = overrideSlots !== undefined
-    ? Math.max(0, Math.min(overrideSlots, DAILY_EMAIL_MAX))
-    : await getAvailableSlots();
+  // Step 2: Calculate how many emails can go out today.
+  // Priority: explicit override > active goal capacity > default (queue-based).
+  let availableSlots: number;
+  if (overrideSlots !== undefined) {
+    availableSlots = Math.max(0, Math.min(overrideSlots, DAILY_EMAIL_MAX));
+  } else {
+    const [queueSlots, activeGoal] = await Promise.all([
+      getAvailableSlots(),
+      getActiveGoal(),
+    ]);
+    // If a goal is active, use the higher of: queue-based slots vs goal's daily target.
+    // Goal takes over capacity planning; queue limit is still the hard ceiling.
+    availableSlots = activeGoal
+      ? Math.min(Math.max(queueSlots, getGoalDailyCapacity(activeGoal)), queueSlots === 0 ? 0 : DAILY_EMAIL_MAX)
+      : queueSlots;
+  }
 
   await log({
     agent: "coordinator",
@@ -138,6 +152,19 @@ export async function runDailyOutreachFlow(overrideSlots?: number): Promise<Dail
     status: "success",
     metadata: { ...result, failed } as unknown as Record<string, unknown>,
   });
+
+  // Update active goal progress with emails sent this week
+  const activeGoal = await getActiveGoal().catch(() => null);
+  if (activeGoal) {
+    const thisWeekStart = new Date();
+    thisWeekStart.setDate(thisWeekStart.getDate() - ((thisWeekStart.getDay() + 6) % 7)); // Monday
+    thisWeekStart.setHours(0, 0, 0, 0);
+    const allQueue = await readSheetAsObjects("Approval Queue").catch(() => []);
+    const emailsSentThisWeek = allQueue.filter(r =>
+      r["status"] === "sent" && r["actioned_at"] && new Date(r["actioned_at"]) >= thisWeekStart
+    ).length;
+    await updateGoalProgress(activeGoal.goalId, emailsSentThisWeek, activeGoal.callsBooked);
+  }
 
   // Build the Telegram summary
   const lines: string[] = [

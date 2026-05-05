@@ -13,6 +13,9 @@ export type Intent =
   | "skip_prospecting"
   | "leads_count"
   | "run_outreach"
+  | "set_goal"
+  | "approve_goal"
+  | "goal_status"
   | "submit_content"
   | "content_status"
   | "view_performance"
@@ -40,6 +43,19 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t.includes("skip prospecting")) return "skip_prospecting";
   if (t.includes("how many leads") || t.includes("leads count") || t.includes("uncontacted leads")) return "leads_count";
   if (t.includes("run prospecting") || t.includes("prospect for")) return "run_prospecting";
+  // Goal approval: Chester replies "approve goal" after Edmund proposes a plan
+  if (t === "approve goal" || t === "yes approve goal" || t === "approve the goal") return "approve_goal";
+  // Goal status check
+  if (t === "goal status" || t.includes("goal progress") || t === "how are we tracking" || t === "am i on track") return "goal_status";
+  // Goal setting: "I need X calls this week", "maximize", "light week", "pause outreach"
+  if (
+    t.match(/\d+\s+calls?\s+(booked\s+)?this\s+week/) ||
+    t.match(/\d+\s+replies?\s+this\s+week/) ||
+    t.match(/\d+\s+(?:new\s+)?clients?\s+this\s+month/) ||
+    (t.includes("maximize") && (t.includes("calls") || t.includes("outreach"))) ||
+    t.includes("light week") || t.includes("easy week") || t.includes("slow week") ||
+    t.includes("pause outreach") || t.includes("no outreach this week")
+  ) return "set_goal";
   if (t.includes("run outreach") || t.includes("send emails")) return "run_outreach";
   if (t.startsWith("new video")) return "submit_content";
   if (t.includes("content status")) return "content_status";
