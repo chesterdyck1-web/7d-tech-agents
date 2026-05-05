@@ -15,8 +15,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ?limit=N overrides capacity calculation — for testing only
+  const limitParam = req.nextUrl.searchParams.get("limit");
+  const overrideSlots = limitParam ? parseInt(limitParam, 10) : undefined;
+
   try {
-    const result = await runDailyOutreachFlow();
+    const result = await runDailyOutreachFlow(overrideSlots);
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     await log({
