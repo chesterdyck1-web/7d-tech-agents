@@ -15,7 +15,7 @@ export interface VapiScriptVars {
 
 export const VAPI_CALL_SCRIPT = `
 GREETING (5 seconds):
-"Hi, is this {{ownerName}} from {{businessName}}? I will be quick — 30 seconds?"
+"Hi — this is an automated message from 7D Tech. I will be quick, do you have 30 seconds?"
 
 HOOK (10 seconds):
 "{{vertical}} tell us the same thing: someone fills out their contact form,
@@ -24,8 +24,8 @@ Does that happen to you?"
 
 OFFER (10 seconds):
 "We built something called First Response Rx. When someone fills your contact form,
-a personalized reply is drafted in 30 seconds, you approve it with one tap, it sends.
-You stop losing leads to slow response time."
+a personalized reply is prepared typically within 30 seconds, you approve it with one tap,
+it sends. It helps you stop losing leads to slow response time."
 
 CLOSE:
 "Chester has {{slot1Human}} or {{slot2Human}} for a 15-minute demo. Which works?"

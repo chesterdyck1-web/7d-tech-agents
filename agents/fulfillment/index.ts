@@ -6,6 +6,7 @@ import { readSheetAsObjects, updateFieldByRowId } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { sendEmail } from "@/lib/gmail";
 import { sendStripeInvoice } from "./stripe-invoicer";
 import { buildClientPrompt } from "./claude-config-builder";
 import { provisionMakeScenario } from "./make-provisioner";
@@ -146,7 +147,18 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
     metadata: { businessName } as unknown as Record<string, unknown>,
   });
 
-  await sendToChester(`Payment confirmed for ${businessName}. Starting technical onboarding...`);
+  // Step 1: Welcome email to client within 30 minutes of payment confirmation
+  const ownerName = client["owner_name"] ?? "there";
+  if (ownerEmail) {
+    await sendEmail({
+      to: ownerEmail,
+      from: "chester@7dtech.ca",
+      subject: "Welcome to 7D Tech — let's get you set up",
+      bodyHtml: `Hi ${ownerName},<br><br>Welcome aboard — really glad to have you.<br><br>Here's what happens next: I'm going to spend the next 24-48 hours getting your First Response Rx system set up and tested. You won't need to do anything technical — just answer a few quick questions so I can make sure the replies sound exactly like you.<br><br>I'll be in touch shortly with next steps.<br><br>Chester<br>7D Tech — 7dtech.ca`,
+    }).catch(() => null); // Never block onboarding on welcome email failure
+  }
+
+  await sendToChester(`Payment confirmed for ${businessName}. Welcome email sent to ${ownerEmail}. Starting technical setup...`);
 
   try {
     const prompt = await buildClientPrompt({
@@ -190,8 +202,18 @@ export async function completeClientOnboarding(ownerEmail: string): Promise<void
       ? "End-to-end test passed."
       : `Test note: ${testResult.details}`;
 
+    // Go-live email to client — matches the skill template exactly
+    if (ownerEmail) {
+      await sendEmail({
+        to: ownerEmail,
+        from: "chester@7dtech.ca",
+        subject: "You're live — here's what to expect",
+        bodyHtml: `Hi ${ownerName},<br><br>Your First Response Rx system is live.<br><br>The next time someone fills out your contact form you'll get an email from us within 30 seconds with a draft reply ready for your approval. One tap to send it — that's it.<br><br>A few things to know:<br>- Replies are personalized to what each prospect writes<br>- You approve every reply before it sends — nothing goes out without your say-so<br>- If you want to edit a reply just do it in the approval screen before approving<br><br>If anything feels off or you want to adjust how the replies sound just let me know and I'll tune it.<br><br>Really excited to see this working for you.<br><br>Chester`,
+      }).catch(() => null);
+    }
+
     await sendToChester(
-      `${businessName} is live! Make scenario #${scenarioId} active.\n${testNote}\n\nFirst Response Rx is running for them.`,
+      `*${businessName} is LIVE*\nMake scenario #${scenarioId} active. ${testNote}\n\nGo-live email sent to client. First Response Rx is running.`,
       "none"
     );
   } catch (err) {

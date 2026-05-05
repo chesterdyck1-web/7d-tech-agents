@@ -106,6 +106,20 @@ export async function runMontgomery(): Promise<void> {
     ]);
   }
 
+  // EXISTENTIAL + PROBABLE → immediate alert to Chester regardless of day or time
+  const criticalSignals = brief.signals.filter(
+    (s) => s.impact === "existential" && s.probability === "probable"
+  );
+  if (criticalSignals.length > 0) {
+    const alertLines = criticalSignals
+      .map((s) => `• *${s.domain}*: ${s.signal.slice(0, 150)}${s.signal.length > 150 ? "…" : ""}`)
+      .join("\n");
+    const topResponse = criticalSignals[0]?.strategicResponse ?? "";
+    await sendToChester(
+      `*MONTGOMERY — EXISTENTIAL ALERT*\n\nA signal rated EXISTENTIAL + PROBABLE has been identified:\n\n${alertLines}\n\nRecommended action: ${topResponse}\n\nFull brief below.`
+    );
+  }
+
   // Send structured brief to Chester via Telegram
   const message = formatTelegramBrief(brief.signals, brief.executiveSummary, dateStr);
   await sendToChester(message);

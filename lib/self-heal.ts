@@ -170,8 +170,10 @@ export async function routeToAlistair(
   });
 }
 
-// Escalates a persistent failure to Edmund for the morning brief.
-// Chester only gets an immediate Telegram ping for "immediate" urgency (money/security).
+// Escalates a persistent failure to Edmund and alerts Chester via Telegram.
+// All exhausted-retry escalations ping Chester — urgency controls tone only.
+// "immediate" = urgent flag for money/security issues
+// "brief" = informational alert for operational failures
 export async function escalateToEdmund(
   agentName: string,
   action: string,
@@ -193,12 +195,18 @@ export async function escalateToEdmund(
     } as unknown as Record<string, unknown>,
   });
 
+  const reasonLines = failureReasons.slice(0, 3).map((r) => `• ${r}`).join("\n");
+
   if (urgency === "immediate") {
     await sendToChester(
-      `*EDMUND — Immediate attention needed*\n\n${agentName} has failed ${attempts} times on "${action}" and cannot self-recover.\n\nReasons:\n${failureReasons.map((r) => `• ${r}`).join("\n")}\n\nThis has been logged. Nothing client-facing has been affected.`
+      `*EDMUND — Immediate attention needed*\n\n${agentName} has failed ${attempts} times on "${action}" and cannot self-recover.\n\nReasons:\n${reasonLines}\n\nNothing client-facing has been affected.`
+    );
+  } else {
+    // Operational failure — Chester gets a plain alert, no alarm
+    await sendToChester(
+      `*EDMUND — Self-healing exhausted*\n${agentName} failed ${attempts}x on "${action}".\n\nReasons:\n${reasonLines}\n\nNo action needed from you — this has been logged. I will investigate.`
     );
   }
-  // "brief" urgency gets rolled into the next morning brief — no immediate ping
 }
 
 // ─── Retry Wrapper ────────────────────────────────────────────────────────────

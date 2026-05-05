@@ -1,6 +1,6 @@
 // Writes new leads to both Master Leads and Daily Leads sheets.
 
-import { appendToSheet } from "@/lib/google-sheets";
+import { appendToSheet, ensureSheetTab } from "@/lib/google-sheets";
 
 export interface LeadRecord {
   businessId: string;
@@ -14,7 +14,19 @@ export interface LeadRecord {
   googlePlaceId: string;
 }
 
+const MASTER_LEADS_HEADERS = [
+  "business_id", "business_name", "vertical", "city", "province",
+  "phone", "email", "website", "google_place_id",
+  "date_added", "last_outreach_date", "outreach_count", "status",
+];
+
+const DAILY_LEADS_HEADERS = [
+  "date", "business_id", "business_name", "vertical", "city",
+  "phone", "email", "website", "approval_id",
+];
+
 export async function writeToMasterLeads(lead: LeadRecord): Promise<void> {
+  await ensureSheetTab("Master Leads", MASTER_LEADS_HEADERS);
   const today = new Date().toISOString().slice(0, 10);
   await appendToSheet("Master Leads", [
     lead.businessId,
@@ -34,6 +46,7 @@ export async function writeToMasterLeads(lead: LeadRecord): Promise<void> {
 }
 
 export async function writeToDailyLeads(lead: LeadRecord): Promise<void> {
+  await ensureSheetTab("Daily Leads", DAILY_LEADS_HEADERS);
   const today = new Date().toISOString().slice(0, 10);
   await appendToSheet("Daily Leads", [
     today,

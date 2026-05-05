@@ -14,64 +14,71 @@ import { getCurrentOffer } from "@/lib/offers";
 import { generateEmailFixInstructions, escalateToEdmund } from "@/lib/self-heal";
 import type { DraftEmailInput } from "./email-drafter";
 
-// Quincy's feedback loop: drafts an email, runs QA, and on failure sends specific
-// fix instructions back to Cornelius for a rewrite. Up to 3 rounds before escalating.
-// Chester never sees this exchange unless all 3 rounds fail.
+// Draft → QA → fix loop running entirely in memory.
+// Cornelius drafts, Quincy validates, specific fix instructions go back to Cornelius on failure.
+// Up to 3 attempts before escalating. Chester only ever sees approved drafts.
 async function draftWithQALoop(
   input: DraftEmailInput,
   label: string
 ): Promise<{ subject: string; body: string } | null> {
-  const MAX_QA_ROUNDS = 3;
-  let qaFeedback: string | undefined;
-  let lastReasons: string[] = [];
+  const MAX_ATTEMPTS = 3;
+  let fixInstructions: string | undefined;
+  const accumulatedReasons: string[] = [];
 
-  for (let round = 1; round <= MAX_QA_ROUNDS; round++) {
-    const variations = await draftOutreachEmail(input, qaFeedback);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Cornelius drafts — fix instructions are injected on attempts 2 and 3
+    const variations = await draftOutreachEmail(input, fixInstructions);
 
+    // Try each variation — return first one that clears Quincy's checks
     for (const variation of variations) {
       const qa = await runEmailQA(variation);
       if (qa.passed) {
-        if (round > 1) {
-          // Log that self-healing worked — Chester sees "Cornelius self-corrected" in brief
+        if (attempt > 1) {
           await log({
             agent: "outreach",
             action: "email_qa_self_corrected",
             entityId: label,
             status: "success",
-            retryCount: round - 1,
-            metadata: { fixedAfterRounds: round } as unknown as Record<string, unknown>,
+            retryCount: attempt - 1,
+            metadata: { fixedAfterAttempts: attempt } as unknown as Record<string, unknown>,
           });
         }
         return variation;
       }
-      lastReasons = qa.reasons;
+      // Collect unique reasons across all variations this round
+      for (const r of qa.reasons) {
+        if (!accumulatedReasons.includes(r)) accumulatedReasons.push(r);
+      }
     }
 
-    if (round < MAX_QA_ROUNDS) {
-      // Generate Quincy's specific fix instructions and feed them back
-      qaFeedback = generateEmailFixInstructions(lastReasons);
-      await log({
-        agent: "outreach",
-        action: "email_qa_feedback_sent",
-        entityId: label,
-        status: "pending",
-        retryCount: round,
-        metadata: { reasons: lastReasons, feedback: qaFeedback.slice(0, 200) } as unknown as Record<string, unknown>,
-      });
+    // All variations failed this round — log and prepare Quincy's instructions
+    await log({
+      agent: "outreach",
+      action: "email_qa_attempt_failed",
+      entityId: label,
+      status: "pending",
+      retryCount: attempt,
+      metadata: { reasons: accumulatedReasons, attempt } as unknown as Record<string, unknown>,
+    });
+
+    if (attempt < MAX_ATTEMPTS) {
+      // Translate Quincy's failure reasons into specific rewrite instructions for Cornelius
+      fixInstructions = generateEmailFixInstructions(accumulatedReasons);
     }
   }
 
-  // All 3 rounds failed — escalate to Edmund for the morning brief
+  // All 3 attempts exhausted — escalate immediately so Chester is aware
   await log({
     agent: "outreach",
     action: "email_qa_failed",
     entityId: label,
     status: "failure",
-    retryCount: MAX_QA_ROUNDS,
-    metadata: { reasons: lastReasons, business: label } as unknown as Record<string, unknown>,
+    retryCount: MAX_ATTEMPTS,
+    metadata: { reasons: accumulatedReasons, business: label } as unknown as Record<string, unknown>,
   });
 
-  await escalateToEdmund("Cornelius (Outreach)", "email_drafting", MAX_QA_ROUNDS, lastReasons, "brief");
+  // "immediate" urgency — Chester gets a Telegram ping, not just a morning brief entry
+  await escalateToEdmund("Cornelius (Outreach)", "email_drafting", MAX_ATTEMPTS, accumulatedReasons, "immediate");
   return null;
 }
 

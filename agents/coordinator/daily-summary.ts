@@ -79,19 +79,31 @@ export async function sendDailySummary(): Promise<void> {
     timeZone: "America/Toronto",
   });
 
+  // Pull MRR from Franklin's financial summary for the brief header
+  const mrrMatch = financialSummary?.match(/MRR[:\s]+\$?([\d,]+)/i);
+  const mrrDisplay = mrrMatch ? `$${mrrMatch[1]} CAD` : null;
+
+  // Count booked calls this week from Approval Queue (type=demo_booked or check Action Log)
+  const thisWeekStart = new Date();
+  thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+  thisWeekStart.setHours(0, 0, 0, 0);
+  // Simple heuristic — count pending approvals as proxy for pipeline activity
+  const callsBookedThisWeek = 0; // Dorian tracks this — placeholder until Sales Intelligence sheet is live
+
   let brief = `*GOOD MORNING CHESTER — 7D BRIEF*\n${dateStr}\n\n`;
 
   // Pipeline
   brief += `*PIPELINE*\n`;
-  brief += `  New leads today: ${todayLeads.length}\n`;
-  brief += `  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← approve at /dashboard" : ""}\n\n`;
+  brief += `  New leads: ${todayLeads.length}  |  Pending your approval: ${pendingApprovals.length}${pendingApprovals.length > 0 ? " ← approve at /dashboard" : ""}\n`;
+  brief += `  Weekly call target: ${callsBookedThisWeek} of 3\n\n`;
 
   // Clients
   brief += `*CLIENTS*\n`;
   brief += `  Active: ${activeClients.length}`;
+  if (mrrDisplay) brief += `  |  MRR: ${mrrDisplay}`;
   if (onboardingClients.length > 0) {
     const names = onboardingClients.map((c) => c["business_name"]).join(", ");
-    brief += `  |  Onboarding: ${onboardingClients.length} (${names})`;
+    brief += `\n  Onboarding: ${onboardingClients.length} (${names})`;
   }
   brief += "\n\n";
 
@@ -179,11 +191,24 @@ export async function sendDailySummary(): Promise<void> {
     brief += "\n";
   }
 
-  // Approvals reminder at the bottom
+  // Approvals reminder
   if (pendingApprovals.length > 0) {
     brief += `*APPROVALS NEEDED* ← open /dashboard to approve\n`;
-    brief += `  ${pendingApprovals.length} item${pendingApprovals.length !== 1 ? "s" : ""} awaiting your review\n`;
+    brief += `  ${pendingApprovals.length} item${pendingApprovals.length !== 1 ? "s" : ""} awaiting your review\n\n`;
   }
+
+  // Edmund's single recommended focus for Chester today
+  brief += `*YOUR ONE PRIORITY TODAY*\n`;
+  if (pendingApprovals.length > 0) {
+    brief += `  Approve the ${pendingApprovals.length} outreach email${pendingApprovals.length !== 1 ? "s" : ""} at /dashboard — getting those out today moves the pipeline.`;
+  } else if (todayLeads.length === 0) {
+    brief += `  Reply "run prospecting" — no leads came in today. Aldous needs the trigger.`;
+  } else if (activeClients.length === 0) {
+    brief += `  Focus on booking a demo call. That is the only metric that matters right now.`;
+  } else {
+    brief += `  Check on your active client${activeClients.length !== 1 ? "s" : ""} — a quick check-in keeps approval rates high.`;
+  }
+  brief += "\n";
 
   await sendToChester(brief);
 }

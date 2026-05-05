@@ -59,14 +59,20 @@ export async function runBuildRequest(rawRequest: string): Promise<void> {
   });
 
   const summary = [
-    `*BEAU — BUILD COMPLETE*`,
+    `*BEAUMONT — BUILD COMPLETE*`,
     `Agent: ${spec.agentDisplayName}`,
-    `Files: ${files.length} generated`,
-    ...(makeSpec ? ["Make.com spec: included"] : []),
-    ...(vapiConfig ? ["Vapi script: included"] : []),
+    `Files generated: ${files.length}`,
+    ...(makeSpec ? ["Make.com spec: ✓ included"] : []),
+    ...(vapiConfig ? ["Vapi script: ✓ included"] : []),
     "",
-    `Draft PR (review before merging):`,
+    `*Draft PR (Chester must approve before anything deploys):*`,
     prUrl,
+    "",
+    `*Before merging:*`,
+    `1. Review the PR — check code, not just description`,
+    `2. Check if any new env vars need to be added to Vercel`,
+    `3. Quincy has validated — but test the happy path yourself after deploy`,
+    `4. Reply "approved" or merge the PR to ship`,
   ].join("\n");
 
   await sendToChester(summary);

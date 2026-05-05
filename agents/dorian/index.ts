@@ -1,7 +1,7 @@
-// Dorian — Sales Agent.
-// Runs weekly on Fridays at 8 AM UTC.
-// Analyzes Vapi call transcripts, generates a coaching brief, and proposes script updates.
-// When close rate is critically low, flags to Chester and queues a script update proposal.
+// Dorian — Audit and Sales Intelligence Agent.
+// Runs weekly on Fridays at 8 AM UTC for sales review.
+// Also triggered by Chester ("audit [name] [url]") for pre-call briefing within 30 minutes.
+// Diagnose before we prescribe — Dorian makes Chester unstoppable on every demo call.
 
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
@@ -50,8 +50,25 @@ export async function runSalesReview(): Promise<void> {
 }
 
 // Returns the latest coaching brief for the coordinator's view_coaching intent.
+// Format matches the skill spec: based on recent call patterns, vertical-specific guidance.
 export async function getCoachingBrief(): Promise<string> {
   const pattern = await analyzeRecentCalls().catch(() => null);
-  if (!pattern) return "Unable to retrieve call data right now.";
-  return generateCoachingBrief(pattern);
+  if (!pattern) return "Unable to retrieve call data right now. No Vapi call data available.";
+
+  const brief = await generateCoachingBrief(pattern);
+  const lines = [
+    `*DORIAN — Sales Coaching Brief*`,
+    `Based on your last ${pattern.totalCalls} calls (${pattern.completedCalls} completed):`,
+    "",
+    brief,
+  ];
+
+  if (pattern.topObjections.length > 0) {
+    lines.push("", `*Most common objections:*`);
+    pattern.topObjections.slice(0, 3).forEach((o, i) => lines.push(`${i + 1}. ${o}`));
+  }
+
+  lines.push("", `_${Math.round(pattern.avgDurationSeconds / 60 * 10) / 10} min avg call length_`);
+
+  return lines.join("\n");
 }

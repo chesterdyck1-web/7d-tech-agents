@@ -103,22 +103,59 @@ export async function runDailyFinancials(): Promise<void> {
     await evaluateCloseRateTrend(closeRate).catch(() => null);
   }
 
-  // Alert if below 2× profitability target
+  // MRR milestone alerts — fire once when a threshold is first crossed
+  const allRows = await readSheetAsObjects("Financial Metrics").catch(() => []);
+  const priorRow = allRows.length >= 2 ? allRows[allRows.length - 2] : null;
+  const priorMrr = priorRow ? Number(priorRow["mrr_cad"] ?? 0) : 0;
+
+  const MRR_MILESTONES: Array<{ threshold: number; note: string }> = [
+    { threshold: 500, note: "This is your first real recurring revenue. The model is working." },
+    {
+      threshold: 1000,
+      note: "Consider upgrading your Make.com plan. Model the Instantly.ai ROI — you may be ready.",
+    },
+    {
+      threshold: 2000,
+      note: "Activate the Real Estate Fund bucket. Day job replacement is now within sight. I will model the timeline.",
+    },
+  ];
+
+  for (const { threshold, note } of MRR_MILESTONES) {
+    if (priorMrr < threshold && revenue.mrrCad >= threshold) {
+      await sendToChester(
+        `*FRANKLIN — MRR MILESTONE: $${threshold} CAD*\n\n${note}`
+      );
+    }
+  }
+
+  // Alert if operating reserve drops below 2 months
+  const MONTHLY_OPERATING_COST = costs.totalCogsCad + MONTHLY_CAC_CAD;
+  const operatingMonthsRemaining =
+    MONTHLY_OPERATING_COST > 0
+      ? Math.floor(funds.operatingFundCad / MONTHLY_OPERATING_COST)
+      : 99;
+  if (operatingMonthsRemaining < 2 && funds.operatingFundCad > 0) {
+    await sendToChester(
+      `*FRANKLIN — OPERATING RESERVE ALERT*\n\nOperating fund covers less than 2 months at current run rate.\nFund: $${funds.operatingFundCad} CAD  |  Monthly cost: $${MONTHLY_OPERATING_COST} CAD\n\nReview costs or hold pricing steady.`
+    );
+  }
+
+  // Alert if below 2× profitability target (only alert when MRR > 0 to avoid false positives at launch)
   if (revenue.mrrCad > 0 && profitabilityRatio < 2) {
     await sendToChester(
-      `*FRANKLIN — PROFITABILITY ALERT*\n\nCurrent ratio: ${profitabilityRatio}× (target: 2×)\nMRR: $${revenue.mrrCad} CAD\nMonthly costs: $${costs.totalCogsCad + MONTHLY_CAC_CAD} CAD\n\nNeed ${Math.ceil(denominator * 2 - revenue.mrrCad)} more CAD/month to hit target.`
+      `*FRANKLIN — PROFITABILITY ALERT*\n\nCurrent ratio: ${profitabilityRatio}× (target: 2×)\nMRR: $${revenue.mrrCad} CAD  |  Monthly costs: $${costs.totalCogsCad + MONTHLY_CAC_CAD} CAD\n\nNeed $${Math.ceil(denominator * 2 - revenue.mrrCad)} more CAD/month to hit target.`
     );
   }
 
   // Alert if any clients are past due
   if (revenue.pastDueCount > 0) {
     await sendToChester(
-      `*FRANKLIN — PAYMENT ALERT*\n${revenue.pastDueCount} client${revenue.pastDueCount > 1 ? "s" : ""} have past-due payments in Stripe. Check and follow up.`
+      `*FRANKLIN — PAYMENT ALERT*\n${revenue.pastDueCount} client${revenue.pastDueCount > 1 ? "s" : ""} with past-due payments in Stripe. Check and follow up.`
     );
   }
 }
 
-// Returns a formatted one-paragraph financial summary for the daily brief.
+// Returns a formatted financial summary for the daily brief — all three capital buckets.
 export async function getFinancialSummary(): Promise<string> {
   const rows = await readSheetAsObjects("Financial Metrics").catch(() => []);
   if (rows.length === 0) return "No financial data yet.";
@@ -127,7 +164,22 @@ export async function getFinancialSummary(): Promise<string> {
   const mrr = Number(latest["mrr_cad"] ?? 0);
   const ratio = Number(latest["profitability_ratio"] ?? 0);
   const operating = Number(latest["operating_fund_cad"] ?? 0);
+  const acquisition = Number(latest["acquisition_fund_cad"] ?? 0);
+  const realEstate = Number(latest["real_estate_fund_cad"] ?? 0);
   const closeRate = Number(latest["close_rate_weekly"] ?? 0);
+  const cac = Number(latest["cac_cad"] ?? MONTHLY_CAC_CAD);
 
-  return `MRR: $${mrr} CAD  |  Profitability: ${ratio}×  |  Operating fund: $${operating} CAD  |  Close rate: ${closeRate}%`;
+  const closeRateTrend =
+    closeRate >= 50 ? "above target — recommend price review" :
+    closeRate >= 30 ? "in sweet spot — hold price" :
+    closeRate > 0 ? "⚠ below 30% — flag to Dorian" :
+    "no data";
+
+  const lines = [
+    `MRR: $${mrr} CAD  |  Profitability: ${ratio}×  |  CAC: $${cac} CAD`,
+    `Operating fund: $${operating}  |  Acquisition fund: $${acquisition} / $50,000  |  Real estate: $${realEstate}`,
+    `Close rate: ${closeRate}% (${closeRateTrend})`,
+  ];
+
+  return lines.join("\n");
 }

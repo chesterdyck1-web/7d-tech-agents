@@ -69,7 +69,7 @@ WHO CHESTER IS:
 Chester is a maintenance technician building his first business on the side. He is brand new — no clients, no track record. He is launching a product called First Response Rx and needs a few businesses to test it. The honesty of being new is not a weakness. It is the whole pitch.
 
 THE PRODUCT (describe it this way — in plain words, exactly):
-Someone fills out a contact form on a business website. Within 30 seconds, a personalized reply goes out. The owner sees it first and approves it with one tap before it sends. That is it. Do not list features. Do not explain how it works. One mechanism. One sentence.
+Someone fills out a contact form on a business website. Typically within 30 seconds, a personalized reply is prepared and ready to send. The owner sees it first and approves it with one tap before it sends. That is it. Do not list features. Do not explain how it works. One mechanism. One sentence.
 
 CHESTER'S VOICE — THIS IS THE MOST IMPORTANT RULE:
 Study these patterns from Chester's actual writing and replicate them:
@@ -88,9 +88,9 @@ Subject: quick question
 
 Noticed [Business Name] has a contact form on your site. Honest question — how fast do you actually get back to those?
 
-I built something that fires off a personalized reply within 30 seconds of every form submission. The owner sees it first and approves with one tap before it sends.
+I built something that fires off a personalized reply typically within 30 seconds of every form submission. The owner sees it first and approves with one tap before it sends.
 
-No clients yet — looking for a few businesses to test it while I put together my first case studies.
+I built this and it is working — I am looking for a handful of businesses to be founding clients at no cost while I build out case studies.
 
 Worth a 15-minute call this week?
 
@@ -102,11 +102,11 @@ RULES:
 1. 5-7 sentences including the sign-off. Count them. If you exceed 7, cut.
 2. Opening line is provided — use it exactly as given, substituting [Business] with the actual business name.
 3. Product sentence: one sentence. Specific mechanism. End with a short punchy follow-up sentence (like "That's it." or "Owner approves. Reply sends.").
-4. Beta framing: honest admission that Chester has no clients yet, then the offer. "No clients yet — looking for a few businesses to test it." Vary the wording across variations.
+4. Beta framing: "I built this and it is working — I am looking for a handful of businesses to be founding clients at no cost while I build out case studies." This is the exact framing. Vary slightly across variations but keep all three elements: built and working, founding clients, no cost for case studies.
 5. Final line before signature: one CTA question. Casual. "Worth a 15-minute call this week?" or a close variant.
 6. Sign off: Chester / 7D Tech — always, both lines, no exceptions.
 7. NEVER USE: AI, artificial intelligence, automation, bot, software, algorithm, Claude, technology, system, platform, tool, solution, automated, automate, innovative, game-changer, revolutionary
-8. USE INSTEAD: "fires off", "sends", "goes out", "personalized reply", "I built something", "the owner approves"
+8. USE INSTEAD: "fires off", "sends", "goes out", "personalized reply is prepared", "I built something", "the owner approves", "typically within 30 seconds", "helps you stop losing leads"
 9. No exclamation marks. No "I hope this finds you well." No "I wanted to reach out." No marketing language of any kind.
 10. Subject line: lowercase, 2-5 words, sounds like a text message.
 
@@ -187,20 +187,18 @@ function parseEmailVariations(
   businessName: string,
   ownerName?: string
 ): DraftedEmail[] {
-  const variationBlocks = text.split(/\nVARIATION \d+:\n/);
   const variations: DraftedEmail[] = [];
 
-  for (const block of variationBlocks) {
-    if (!block.trim()) continue;
-    const subjectMatch = block.match(/^SUBJECT:\s*(.+)$/m);
-    const bodyMatch = block.match(/^BODY:\s*\n([\s\S]+?)(?=\n*$)/m);
-
-    if (subjectMatch?.[1] && bodyMatch?.[1]) {
-      variations.push({
-        subject: subjectMatch[1].trim(),
-        body: bodyMatch[1].trim(),
-      });
-    }
+  // Single global regex — avoids two bugs in the old split approach:
+  // 1. split(/\nVARIATION \d+:\n/) required a leading newline Claude sometimes omits
+  // 2. /[\s\S]+?(?=\n*$)/m — the m flag makes $ match every line ending, so the lazy
+  //    quantifier stopped after 2 words. Without m, $ is end-of-string only.
+  const re = /VARIATION \d+:\s*\nSUBJECT:\s*(.+)\nBODY:\s*\n([\s\S]+?)(?=\nVARIATION \d+:|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    const subject = match[1]?.trim();
+    const body = match[2]?.trim();
+    if (subject && body) variations.push({ subject, body });
   }
 
   // Fallback if parsing fails — return a single minimal draft
