@@ -1,6 +1,7 @@
 // Approval API — handles both rendering the approval page and processing decisions.
 // GET  /api/approve?token=JWT  → validates token, returns approval data for the UI
 // POST /api/approve             → processes approve or reject decision
+// Rate limited to 10 POST requests per IP per minute to prevent token brute-forcing.
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyApprovalToken } from "@/lib/approval-token";
@@ -10,6 +11,21 @@ import {
 } from "@/lib/google-sheets";
 import { sendEmail } from "@/lib/gmail";
 import { log } from "@/lib/logger";
+
+// In-memory rate limit map: IP → { count, resetAt }
+// Resets each minute. 10 attempts/min is enough for legitimate use; blocks brute force.
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  let entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + 60_000 };
+    rateLimitMap.set(ip, entry);
+  }
+  entry.count++;
+  return entry.count > 10;
+}
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -59,6 +75,24 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+
+  if (isRateLimited(ip)) {
+    await log({
+      agent: "coordinator",
+      action: "approval_rate_limited",
+      status: "failure",
+      errorMessage: `Rate limit exceeded for IP ${ip}`,
+    });
+    return NextResponse.json(
+      { error: "Too many requests. Try again in a minute." },
+      { status: 429 }
+    );
+  }
+
   const body = await req.json() as {
     token: string;
     decision: "approve" | "reject";

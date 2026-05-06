@@ -2,6 +2,8 @@
 // All messages to Chester go through sendToChester().
 
 import { env } from "@/lib/env";
+import { withRetry } from "@/lib/retry";
+import { withCircuitBreaker, CIRCUIT } from "@/lib/circuit-breaker";
 
 const BASE = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
 
@@ -19,16 +21,23 @@ export async function sendToChester(
     };
     if (mode !== "none") body["parse_mode"] = mode;
 
-    const res = await fetch(`${BASE}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    await withCircuitBreaker(CIRCUIT.TELEGRAM, () =>
+      withRetry(async () => {
+        const res = await fetch(`${BASE}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Telegram sendMessage failed: ${err}`);
-    }
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Telegram sendMessage failed: ${err}`);
+        }
+      }, {
+        // Don't retry parse errors — they're permanent, not transient
+        shouldRetry: (err) => !err.message.includes("can't parse entities"),
+      })
+    );
   };
 
   try {

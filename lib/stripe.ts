@@ -2,6 +2,8 @@
 
 import Stripe from "stripe";
 import { env } from "@/lib/env";
+import { withRetry } from "@/lib/retry";
+import { withCircuitBreaker, CIRCUIT } from "@/lib/circuit-breaker";
 
 let _stripe: Stripe | null = null;
 
@@ -13,40 +15,40 @@ function getStripe(): Stripe {
 }
 
 // Create a one-time Stripe payment link for client onboarding.
-// amount is in CAD cents (e.g. 5000 = $50.00 CAD).
 export async function createPaymentLink(params: {
   clientName: string;
   clientEmail: string;
-  amountCad: number; // in dollars, e.g. 50
+  amountCad: number;
   description: string;
 }): Promise<{ url: string; paymentLinkId: string }> {
-  const stripe = getStripe();
-
-  const price = await stripe.prices.create({
-    currency: "cad",
-    unit_amount: params.amountCad * 100, // convert to cents
-    product_data: { name: params.description },
-  });
-
-  const link = await stripe.paymentLinks.create({
-    line_items: [{ price: price.id, quantity: 1 }],
-    metadata: {
-      client_name: params.clientName,
-      client_email: params.clientEmail,
-    },
-    after_completion: {
-      type: "hosted_confirmation",
-      hosted_confirmation: {
-        custom_message: "Payment received. Chester will be in touch within 24 hours to begin your setup.",
-      },
-    },
-  });
-
-  return { url: link.url, paymentLinkId: link.id };
+  return withCircuitBreaker(CIRCUIT.STRIPE, () =>
+    withRetry(async () => {
+      const stripe = getStripe();
+      const price = await stripe.prices.create({
+        currency: "cad",
+        unit_amount: params.amountCad * 100,
+        product_data: { name: params.description },
+      });
+      const link = await stripe.paymentLinks.create({
+        line_items: [{ price: price.id, quantity: 1 }],
+        metadata: {
+          client_name: params.clientName,
+          client_email: params.clientEmail,
+        },
+        after_completion: {
+          type: "hosted_confirmation",
+          hosted_confirmation: {
+            custom_message:
+              "Payment received. Chester will be in touch within 24 hours to begin your setup.",
+          },
+        },
+      });
+      return { url: link.url, paymentLinkId: link.id };
+    })
+  );
 }
 
 // Verify a Stripe webhook signature and return the parsed event.
-// Call this in /api/webhooks/stripe before processing any event.
 export function constructWebhookEvent(
   rawBody: Buffer,
   signature: string
@@ -58,13 +60,15 @@ export function constructWebhookEvent(
   );
 }
 
-// Check if a payment link has been paid. Returns true if at least one
-// successful payment exists for this link.
+// Check if a payment link has been paid.
 export async function isPaymentLinkPaid(paymentLinkId: string): Promise<boolean> {
-  const stripe = getStripe();
-  const sessions = await stripe.checkout.sessions.list({
-    payment_link: paymentLinkId,
-    limit: 5,
-  });
-  return sessions.data.some((s) => s.payment_status === "paid");
+  return withCircuitBreaker(CIRCUIT.STRIPE, () =>
+    withRetry(async () => {
+      const sessions = await getStripe().checkout.sessions.list({
+        payment_link: paymentLinkId,
+        limit: 5,
+      });
+      return sessions.data.some((s) => s.payment_status === "paid");
+    })
+  );
 }

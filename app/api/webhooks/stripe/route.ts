@@ -31,6 +31,28 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    // Idempotency: check if this Stripe event was already processed.
+    // Stripe retries webhooks on failure — this prevents double-onboarding.
+    try {
+      const actionLog = await readSheetAsObjects("Action Log");
+      const alreadyProcessed = actionLog.some(
+        (r) => r["action"] === "stripe_payment_processed" && r["entity_id"] === event.id
+      );
+      if (alreadyProcessed) {
+        return NextResponse.json({ ok: true });
+      }
+    } catch {
+      // If we can't check the log, proceed — better to risk a duplicate than block payment
+    }
+
+    // Log the event ID immediately so concurrent retries see it
+    await log({
+      agent: "fulfillment",
+      action: "stripe_payment_processed",
+      entityId: event.id,
+      status: "pending",
+    }).catch(() => null);
+
     // Stripe puts the customer email on the session if collected at checkout
     const clientEmail =
       session.customer_details?.email ??

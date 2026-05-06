@@ -3,32 +3,50 @@
 // email sequence so follow-ups are paused if the prospect showed interest.
 
 import { NextRequest, NextResponse } from "next/server";
-import { updateFieldByRowId } from "@/lib/google-sheets";
+import { updateFieldByRowId, readSheetAsObjects } from "@/lib/google-sheets";
 import { sendToChester } from "@/lib/telegram";
 import { log } from "@/lib/logger";
 import { updateVapiStatus } from "@/agents/outreach/sequence-engine";
+import { z } from "zod";
 
-interface VapiCallEndedEvent {
-  type: string;
-  call?: {
-    id: string;
-    status: string;
-    endedReason?: string;
-    summary?: string;
-    metadata?: {
-      business_id?: string;
-      business_name?: string;
-    };
-  };
-}
+const vapiBodySchema = z.object({
+  type: z.string(),
+  call: z
+    .object({
+      id: z.string(),
+      status: z.string().optional(),
+      endedReason: z.string().optional(),
+      summary: z.string().optional(),
+      metadata: z
+        .object({
+          business_id: z.string().optional(),
+          business_name: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
 export async function POST(req: NextRequest) {
-  let body: VapiCallEndedEvent;
+  let rawBody: unknown;
   try {
-    body = await req.json() as VapiCallEndedEvent;
+    rawBody = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
+  const parsed = vapiBodySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    await log({
+      agent: "fulfillment",
+      action: "vapi_webhook_invalid_input",
+      status: "failure",
+      errorMessage: parsed.error.message,
+    });
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  const body = parsed.data;
 
   // Vapi sends many event types — only process end-of-call reports
   if (body.type !== "end-of-call-report") {
@@ -36,8 +54,19 @@ export async function POST(req: NextRequest) {
   }
 
   const call = body.call;
-  if (!call) {
+  if (!call?.id) {
     return NextResponse.json({ ok: true });
+  }
+
+  // Idempotency: if this call was already processed, skip
+  try {
+    const actionLog = await readSheetAsObjects("Action Log");
+    const alreadyProcessed = actionLog.some(
+      (r) => r["action"] === "vapi_call_ended" && r["metadata"]?.includes(call.id)
+    );
+    if (alreadyProcessed) return NextResponse.json({ ok: true });
+  } catch {
+    // If we can't check, proceed
   }
 
   const businessId = call.metadata?.business_id ?? "";

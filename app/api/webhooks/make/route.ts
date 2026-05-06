@@ -48,6 +48,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, test: true });
   }
 
+  // Idempotency: if this client+prospect combination already has a pending entry
+  // created in the last 24 hours, skip processing to prevent duplicate drafts on webhook retry.
+  const today24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const existingApprovals = await readSheetAsObjects("Approval Queue").catch(() => []);
+  const duplicate = existingApprovals.find(
+    (r) =>
+      r["client_id"] === client_id &&
+      r["to_email"] === email &&
+      (r["status"] === "pending" || r["status"] === "approved") &&
+      (r["created_at"] ?? r["timestamp"] ?? "") >= today24h
+  );
+  if (duplicate) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   const clients = await readSheetAsObjects("Clients");
   const client = clients.find((c) => c["client_id"] === client_id);
 

@@ -1,5 +1,6 @@
 // Writes every agent action to the Action Log sheet (immutable audit trail).
 // Call log() after every significant action — success, failure, or pending.
+// Never logs sensitive data: no email body content, no API keys.
 
 import { appendToSheet } from "@/lib/google-sheets";
 import { randomUUID } from "crypto";
@@ -21,9 +22,10 @@ type Agent =
   | "lexington"
   | "chichester"
   | "dorian"
-  | "montgomery";
+  | "montgomery"
+  | "integrity";
 
-type LogStatus = "success" | "failure" | "pending";
+type LogStatus = "success" | "failure" | "pending" | "retrying";
 
 interface LogEntry {
   agent: Agent;
@@ -32,11 +34,21 @@ interface LogEntry {
   status: LogStatus;
   metadata?: Record<string, unknown>;
   errorMessage?: string;
-  // How many times this action was retried before this log entry was written.
-  // 0 or undefined = first attempt. Gives Chester visibility into self-healing effort.
   retryCount?: number;
+  durationMs?: number; // how long the operation took in milliseconds
 }
 
+// Action Log columns (append order — do not reorder, existing rows depend on positions):
+// 0: log_id (UUID)
+// 1: timestamp (ISO 8601)
+// 2: agent
+// 3: action
+// 4: entity_id
+// 5: status
+// 6: metadata (JSON)
+// 7: error_message
+// 8: retry_count
+// 9: duration_ms
 export async function log(entry: LogEntry): Promise<void> {
   const row = [
     randomUUID(),
@@ -48,6 +60,7 @@ export async function log(entry: LogEntry): Promise<void> {
     entry.metadata ? JSON.stringify(entry.metadata) : "",
     entry.errorMessage ?? "",
     entry.retryCount ?? 0,
+    entry.durationMs ?? "",
   ];
 
   try {
@@ -55,5 +68,26 @@ export async function log(entry: LogEntry): Promise<void> {
   } catch (err) {
     // Logger must never crash the calling agent — emit to console as last resort
     console.error("[logger] Failed to write to Action Log sheet:", err);
+  }
+}
+
+// Convenience: time an async operation and log the result with duration.
+export async function logTimed<T>(
+  entry: Omit<LogEntry, "status" | "durationMs">,
+  fn: () => Promise<T>
+): Promise<T> {
+  const start = Date.now();
+  try {
+    const result = await fn();
+    await log({ ...entry, status: "success", durationMs: Date.now() - start });
+    return result;
+  } catch (err) {
+    await log({
+      ...entry,
+      status: "failure",
+      durationMs: Date.now() - start,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
   }
 }
