@@ -5,7 +5,7 @@
 import { getAvailableSlots, markStaleLeads, getUncontactedLeads, DAILY_EMAIL_MAX } from "@/lib/capacity";
 import { runProspecting } from "@/agents/prospecting/index";
 import { draftAndQueueLeads, runFollowUps } from "@/agents/outreach/index";
-import { getActiveGoal, getGoalDailyCapacity, updateGoalProgress } from "@/lib/goals";
+import { getActiveGoal, getGoalDailyCapacity, updateGoalProgress, getConversionRates, getGoalTrackingStatus } from "@/lib/goals";
 import { readSheetAsObjects } from "@/lib/google-sheets";
 import { log } from "@/lib/logger";
 import { sendToChester } from "@/lib/telegram";
@@ -153,7 +153,8 @@ export async function runDailyOutreachFlow(overrideSlots?: number): Promise<Dail
     metadata: { ...result, failed } as unknown as Record<string, unknown>,
   });
 
-  // Update active goal progress with emails sent this week
+  // Update active goal progress and check if we're behind pace
+  let goalBehindLines: string[] = [];
   const activeGoal = await getActiveGoal().catch(() => null);
   if (activeGoal) {
     const thisWeekStart = new Date();
@@ -164,6 +165,25 @@ export async function runDailyOutreachFlow(overrideSlots?: number): Promise<Dail
       r["status"] === "sent" && r["actioned_at"] && new Date(r["actioned_at"]) >= thisWeekStart
     ).length;
     await updateGoalProgress(activeGoal.goalId, emailsSentThisWeek, activeGoal.callsBooked);
+
+    const rates = await getConversionRates().catch(() => null);
+    if (rates) {
+      const tracking = getGoalTrackingStatus(activeGoal, rates);
+      if (tracking === "behind") {
+        const daysLeft = Math.max(1, Math.round((new Date(activeGoal.deadline).getTime() - Date.now()) / 86400000));
+        const emailsRemaining = Math.max(0, activeGoal.emailsNeeded - emailsSentThisWeek);
+        const catchUpPerDay = Math.min(Math.ceil(emailsRemaining / daysLeft), DAILY_EMAIL_MAX);
+        const goalLabel = activeGoal.goalType === "calls_week" ? `${activeGoal.target} calls`
+          : activeGoal.goalType === "replies_week" ? `${activeGoal.target} replies`
+          : `${activeGoal.target} clients`;
+        goalBehindLines = [
+          `\n⚠ *Goal pace: behind*`,
+          `Sent this week: ${emailsSentThisWeek} of ${activeGoal.emailsNeeded} emails needed for ${goalLabel}.`,
+          `Catch-up needed: ${catchUpPerDay} emails/day for ${daysLeft} more day${daysLeft !== 1 ? "s" : ""}.`,
+          `Running at full capacity today. Reply "goal status" for full picture.`,
+        ];
+      }
+    }
   }
 
   // Build the Telegram summary
@@ -180,6 +200,7 @@ export async function runDailyOutreachFlow(overrideSlots?: number): Promise<Dail
 
   lines.push(`\nEmails in your dashboard: ${totalQueued}`);
   if (staleMarked > 0) lines.push(`Stale leads archived: ${staleMarked}`);
+  if (goalBehindLines.length > 0) lines.push(...goalBehindLines);
 
   await sendToChester(lines.join("\n"));
 

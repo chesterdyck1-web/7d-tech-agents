@@ -10,6 +10,8 @@ import { captureRevenue } from "./revenue-tracker";
 import { estimateCosts } from "./cost-tracker";
 import { computeFunds } from "./fund-manager";
 import { computeCloseRate, evaluateCloseRateTrend } from "./close-rate-monitor";
+import { listCalls } from "@/lib/vapi";
+import { DEFAULT_CONVERSION_RATES } from "@/lib/goals";
 
 // Estimated monthly customer acquisition cost (outreach time + ad spend placeholder)
 const MONTHLY_CAC_CAD = 15;
@@ -98,9 +100,10 @@ export async function runDailyFinancials(): Promise<void> {
     metadata: { mrr: revenue.mrrCad, profitabilityRatio, closeRate: closeRate.closeRatePct } as unknown as Record<string, unknown>,
   });
 
-  // Weekly close rate evaluation (Mondays only)
+  // Weekly close rate evaluation and conversion rate recording (Mondays only)
   if (isMonday) {
     await evaluateCloseRateTrend(closeRate).catch(() => null);
+    await updateConversionRates().catch(() => null);
   }
 
   // MRR milestone alerts — fire once when a threshold is first crossed
@@ -153,6 +156,80 @@ export async function runDailyFinancials(): Promise<void> {
       `*FRANKLIN — PAYMENT ALERT*\n${revenue.pastDueCount} client${revenue.pastDueCount > 1 ? "s" : ""} with past-due payments in Stripe. Check and follow up.`
     );
   }
+}
+
+// Compute and store actual email→reply→call→client conversion rates for the past 7 days.
+// Goals system reads these on Mondays so goal math uses real rates instead of defaults.
+async function updateConversionRates(): Promise<void> {
+  await ensureSheetTab("Conversion Rates", [
+    "week_start", "email_reply_rate", "reply_to_call_rate", "call_to_client_rate",
+    "emails_sent", "replies_received", "calls_completed", "new_clients",
+  ]);
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const weekStart = weekAgo.toISOString().slice(0, 10);
+
+  const [queue, actionLog, clients] = await Promise.all([
+    readSheetAsObjects("Approval Queue"),
+    readSheetAsObjects("Action Log"),
+    readSheetAsObjects("Clients"),
+  ]);
+
+  const emailsSent = queue.filter(
+    (r) => r["type"] === "outreach_email" && r["status"] === "approved" && (r["decided_at"] ?? "") >= weekStart
+  ).length;
+
+  // Replies are logged to Action Log by the reply tracker
+  const repliesReceived = actionLog.filter(
+    (r) => r["action"] === "reply_detected" && (r["timestamp"] ?? "") >= weekStart
+  ).length;
+
+  // Vapi calls completed this week — may be 0 if calling not yet active
+  let callsCompleted = 0;
+  try {
+    const vapiCalls = await listCalls(100, weekAgo.toISOString());
+    callsCompleted = vapiCalls.filter((c) => c.status === "completed").length;
+  } catch { /* Vapi not yet active */ }
+
+  const newClients = clients.filter(
+    (c) =>
+      (c["status"] === "active" || c["status"] === "onboarding") &&
+      (c["created_at"] ?? "") >= weekStart
+  ).length;
+
+  // Skip if no email data — rates would be meaningless
+  if (emailsSent === 0) return;
+
+  // Use real rate if enough data exists; otherwise fall back to default assumption
+  const emailReplyRate =
+    repliesReceived > 0
+      ? Math.round((repliesReceived / emailsSent) * 1000) / 1000
+      : DEFAULT_CONVERSION_RATES.emailReplyRate;
+
+  const replyToCallRate =
+    callsCompleted > 0 && repliesReceived > 0
+      ? Math.round((callsCompleted / repliesReceived) * 1000) / 1000
+      : DEFAULT_CONVERSION_RATES.replyToCallRate;
+
+  const callToClientRate =
+    newClients > 0 && callsCompleted > 0
+      ? Math.round((newClients / callsCompleted) * 1000) / 1000
+      : DEFAULT_CONVERSION_RATES.callToClientRate;
+
+  await appendToSheet("Conversion Rates", [
+    weekStart, emailReplyRate, replyToCallRate, callToClientRate,
+    emailsSent, repliesReceived, callsCompleted, newClients,
+  ]);
+
+  await log({
+    agent: "franklin",
+    action: "conversion_rates_updated",
+    status: "success",
+    metadata: {
+      emailReplyRate, replyToCallRate, callToClientRate,
+      emailsSent, repliesReceived, callsCompleted, newClients,
+    } as unknown as Record<string, unknown>,
+  });
 }
 
 // Returns a formatted financial summary for the daily brief — all three capital buckets.
