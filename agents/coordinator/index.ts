@@ -88,14 +88,18 @@ YOUR JOB RIGHT NOW:
 Classify Chester's message into exactly one of these intents:
 view_pipeline | view_approvals | onboard_client | run_audit | send_prescription |
 build_spec | run_prospecting | skip_prospecting | leads_count | set_goal | approve_goal |
-goal_status | content_status | view_performance | view_intelligence | view_red_team |
-view_financial | view_coaching | view_tech_brief | view_black_swan | view_errors |
-get_summary | ask_question
+goal_status | capacity_report | content_status | view_performance | view_intelligence |
+view_red_team | view_financial | view_coaching | view_tech_brief | view_black_swan |
+view_errors | get_summary | ask_question
 
-Goal intents:
-- set_goal: Chester states a target ("I need 3 calls this week", "light week", "pause outreach")
-- approve_goal: Chester approves a plan Edmund proposed ("approve goal")
-- goal_status: Chester asks about progress ("goal status", "how are we tracking")
+Use your full reasoning to interpret what Chester means even when phrasing is unusual. Examples:
+- set_goal: "I need 3 calls this week" / "light week" / "pause outreach" / "full capacity" / "run at full capacity" / "maximum outreach" / "let's go hard this week" / "take it easy" / "blast it"
+- approve_goal: "approve goal" / "yes do it" / "go ahead with that plan" / "lock it in"
+- goal_status: "goal status" / "how are we tracking" / "are we on track" / "where are we at"
+- capacity_report: "how many can we send" / "what's our capacity" / "daily capacity" / "how many emails left"
+- view_approvals: "what do I need to approve" / "what's pending" / "what needs my sign-off" / "anything for me to approve"
+- run_outreach: "run outreach" / "send the emails" / "go" / "fire away"
+- ask_question: anything genuinely ambiguous that doesn't fit above — Edmund will interpret it further
 
 Reply with ONLY the intent string — no explanation, no punctuation.
 `.trim();
@@ -189,6 +193,10 @@ async function routeIntent(intent: Intent, originalText: string): Promise<void> 
       await activateClient(businessName);
       break;
     }
+
+    case "capacity_report":
+      await handleCapacityReport();
+      break;
 
     case "run_outreach": {
       await sendToChester("Running the daily outreach flow now — calculating capacity and drafting emails.");
@@ -453,6 +461,27 @@ async function handleViewPerformance(): Promise<void> {
   await sendToChester(`*PERFORMANCE FLAGS*\n${lines}`);
 }
 
+async function handleCapacityReport(): Promise<void> {
+  const { getAvailableSlots, DAILY_EMAIL_MAX } = await import("@/lib/capacity");
+  const queue = await readSheetAsObjects("Approval Queue").catch(() => []);
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [slots] = await Promise.all([getAvailableSlots()]);
+  const pending = queue.filter((r) => r["status"] === "pending").length;
+  const sentLast24h = queue.filter(
+    (r) => r["status"] === "sent" && r["actioned_at"] && r["actioned_at"] >= yesterday
+  ).length;
+
+  await sendToChester(
+    `*DAILY CAPACITY*\n` +
+    `Max emails/day: ${DAILY_EMAIL_MAX}\n` +
+    `Pending approvals in queue: ${pending}\n` +
+    `Sent in last 24h: ${sentLast24h}\n` +
+    `Available slots right now: ${slots}\n\n` +
+    `Say "run outreach" to fill those slots now, or "full capacity" to set that as this week's goal.`
+  );
+}
+
 async function handleAskQuestion(question: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const [dailyLeads, clients, approvals] = await Promise.all([
@@ -468,18 +497,29 @@ async function handleAskQuestion(question: string): Promise<void> {
   );
 
   const context = `
-Today's leads: ${todayLeads.length} (from Daily Leads sheet, date ${today}).
-Outreach emails queued for approval today: ${pendingApprovals.length}.
+Today: ${today}.
+Today's leads found: ${todayLeads.length}.
+Outreach emails pending approval: ${pendingApprovals.length}.
 Outreach emails sent today: ${sentToday.length}.
 Active clients: ${clients.filter((c) => c["status"] === "active").length}.
 Clients onboarding: ${clients.filter((c) => c["status"] === "onboarding").length}.
+Daily email cap: 30. Available slots today: ${Math.max(0, 30 - pendingApprovals.length - sentToday.length)}.
   `.trim();
 
-  const ANSWER_SYSTEM = `You are Edmund, Coordinator Agent for 7D Tech. Answer Chester's questions the way Chester himself writes — direct, specific, no filler. Drop straight into the answer. Use a short punchy sentence as the payoff after any explanation. If the situation is fine, say so in one sentence and stop. If something needs attention, name the specific thing. Never use: "Great question", "Certainly", "Of course", or any preamble. Data is provided below.`;
+  const ANSWER_SYSTEM = `You are Edmund, Coordinator Agent for 7D Tech. Chester messages you via Telegram.
+
+INTERPRET FIRST: Chester may be asking a question OR giving you a direction. Read his message carefully and determine what he actually wants. If it's a direction or command — even phrased casually — describe the specific action you would take (e.g. "I'll run outreach at full capacity now" or "Setting goal to light week — 15 emails/day"). If it's a question, answer it directly with the data provided.
+
+CLARIFICATION RULE: If you genuinely cannot tell what Chester wants, ask exactly ONE specific clarifying question. Not a list, not options — one question. Make it specific enough that his one-word answer unlocks everything.
+
+BANNED RESPONSES: Never say "something went wrong", "I'm not sure what you mean", "I don't understand", or any response that leaves Chester without a path forward. Always either act, name the action you'd take, or ask the one clarifying question.
+
+VOICE: Answer the way Chester writes — direct, no filler. Drop straight into the answer. No preamble. No "Great question". If something is fine, say so in one sentence. If something needs attention, name the specific thing.`;
+
   const res = await claude({
     system: (await getPromptOverride("coordinator", "answer")) ?? ANSWER_SYSTEM,
-    userMessage: `Business data:\n${context}\n\nChester's question: ${question}`,
-    maxTokens: 200,
+    userMessage: `Business data:\n${context}\n\nChester's message: ${question}`,
+    maxTokens: 250,
     label: "coordinator:answer-question",
   });
 

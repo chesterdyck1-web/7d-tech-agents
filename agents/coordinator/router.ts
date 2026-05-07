@@ -16,6 +16,7 @@ export type Intent =
   | "set_goal"
   | "approve_goal"
   | "goal_status"
+  | "capacity_report"
   | "submit_content"
   | "content_status"
   | "view_performance"
@@ -34,7 +35,15 @@ export function fastRouteIntent(text: string): Intent | null {
   const t = text.toLowerCase().trim();
 
   if (t.includes("show pipeline") || t.includes("leads today")) return "view_pipeline";
-  if (t.includes("pending approval")) return "view_approvals";
+  if (
+    t.includes("pending approval") ||
+    t.includes("what do i need to approve") ||
+    t.includes("what needs my approval") ||
+    t.includes("what needs approving") ||
+    t.includes("what's pending") ||
+    t.includes("show my approvals") ||
+    t.includes("show approvals")
+  ) return "view_approvals";
   if (t.startsWith("client signed")) return "onboard_client";
   if (t.startsWith("activate client")) return "activate_client";
   if (t.startsWith("audit ")) return "run_audit";
@@ -43,12 +52,28 @@ export function fastRouteIntent(text: string): Intent | null {
   if (t.includes("skip prospecting")) return "skip_prospecting";
   if (t.includes("how many leads") || t.includes("leads count") || t.includes("uncontacted leads")) return "leads_count";
   if (t.includes("run prospecting") || t.includes("prospect for")) return "run_prospecting";
+  // Capacity report: "how many can we send", "what's our capacity"
+  if (
+    t.includes("how many can we send") ||
+    t.includes("how many emails can we") ||
+    t.includes("what's our capacity") ||
+    t.includes("what is our capacity") ||
+    t.includes("daily capacity") ||
+    t.includes("capacity today") ||
+    t.includes("email capacity")
+  ) return "capacity_report";
   // Goal approval: Chester replies "approve goal" after Edmund proposes a plan
   if (t === "approve goal" || t === "yes approve goal" || t === "approve the goal") return "approve_goal";
   // Goal status check
   if (t === "goal status" || t.includes("goal progress") || t === "how are we tracking" || t === "am i on track") return "goal_status";
-  // Goal setting: "I need X calls this week", "maximize", "light week", "pause outreach"
+  // Goal setting: full capacity / maximize / light week / specific targets / pause
   if (
+    t.includes("full capacity") ||
+    t.includes("run at full") ||
+    t.includes("maximum outreach") ||
+    t.includes("max outreach") ||
+    t.includes("run at max") ||
+    t === "maximize" ||
     t.match(/\d+\s+calls?\s+(booked\s+)?this\s+week/) ||
     t.match(/\d+\s+replies?\s+this\s+week/) ||
     t.match(/\d+\s+(?:new\s+)?clients?\s+this\s+month/) ||

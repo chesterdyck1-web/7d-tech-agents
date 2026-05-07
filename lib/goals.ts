@@ -317,7 +317,15 @@ export function parseGoalFromMessage(text: string): { goalType: GoalType; target
     t.match(/need\s+(\d+)\s+(?:new\s+)?clients?\s+this\s+month/);
   if (clientsMatch) return { goalType: "clients_month", target: parseInt(clientsMatch[1]!), deadline: getMonthDeadline() };
 
-  if (t.includes("maximize") && (t.includes("calls") || t.includes("outreach") || t.includes("emails")))
+  if (
+    t.includes("full capacity") ||
+    t.includes("run at full") ||
+    t.includes("maximum outreach") ||
+    t.includes("max outreach") ||
+    t.includes("run at max") ||
+    t === "maximize" ||
+    (t.includes("maximize") && (t.includes("calls") || t.includes("outreach") || t.includes("emails")))
+  )
     return { goalType: "maximize", target: 0, deadline: getWeekDeadline() };
 
   if (t.includes("light week") || t.includes("easy week") || t.includes("slow week"))
